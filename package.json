@@ -13,7 +13,9 @@
     "lint:fix": "biome check --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint:archi": "depcruise src app --config .dependency-cruiser.cjs",
+    "verify": "pnpm lint && pnpm typecheck && pnpm lint:archi && pnpm test"
   },
   "dependencies": {
     "hono": "4.13.13",
@@ -27,6 +29,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dependency-cruiser": "18.6.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "5.0.4"
