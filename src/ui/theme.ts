@@ -5,20 +5,20 @@
  * remplacer les symboles par des images, ne demande de modifier que ce fichier.
  */
 export interface Look {
-    /** Symbole affiché. */
-    glyph: string
-    /** Libellé en français, lu par les lecteurs d'écran et affiché au survol. */
-    label: string
+  /** Symbole affiché. */
+  glyph: string
+  /** Libellé en français, lu par les lecteurs d'écran et affiché au survol. */
+  label: string
 }
 
 export const theme: Record<string, Look> = {
-    village: { glyph: '🏰', label: 'Village' },
-    wood: { glyph: '🪵', label: 'Bois' },
-    stone: { glyph: '🪨', label: 'Pierre' },
-    gold: { glyph: '🪙', label: 'Or' },
-    sawmill: { glyph: '🪚', label: 'Scierie' },
-    quarry: { glyph: '⛏️', label: 'Carrière' },
-    mine: { glyph: '⚒️', label: 'Mine' },
+  village: { glyph: '🏰', label: 'Village' },
+  wood: { glyph: '🪵', label: 'Bois' },
+  stone: { glyph: '🪨', label: 'Pierre' },
+  gold: { glyph: '🪙', label: 'Or' },
+  sawmill: { glyph: '🪚', label: 'Scierie' },
+  quarry: { glyph: '⛏️', label: 'Carrière' },
+  mine: { glyph: '⚒️', label: 'Mine' },
 }
 
 /** Apparence d'une entité ; une apparence neutre si l'entité n'est pas décrite. */
