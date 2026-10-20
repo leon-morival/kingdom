@@ -93,13 +93,11 @@ chaque déploiement, après les contrôles et avant la construction de l'applica
 
 ## Déploiement
 
-Le projet est préparé pour Vercel, dans la région de Francfort (`fra1`), avec une base
-Neon dans la même région. Après connexion du dépôt GitHub au projet Vercel, chaque envoi
-sur `main` déclenche la commande `pnpm vercel-build` : contrôles, migrations, construction.
+L'application est déployée sur Vercel, dans la région de Francfort (`fra1`), avec une base
+Neon. Chaque envoi sur `main` déclenche la commande `pnpm vercel-build` :
+contrôles, migrations, construction.
 L'adresse de production figure dans le champ « Website » de la rubrique « About » du
 dépôt GitHub.
-
-La vérification du cookie HTTPS en production reste à compléter dans la revue de sécurité.
 
 Les variables `DATABASE_URL` et `DATABASE_URL_UNPOOLED` sont fournies par l'intégration
 Neon de Vercel. La variable `BETTER_AUTH_SECRET` est définie dans les réglages du projet

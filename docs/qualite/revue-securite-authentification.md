@@ -6,7 +6,8 @@
 - Références : OWASP Top 10, OWASP ASVS.
 - Versions examinées : Better Auth 1.7.7 et Next.js 16.4.0, d'après les dépendances installées.
 - Méthode : lecture du code et des dépendances, revue indépendante, tests et requêtes HTTP
-  sur une copie isolée du projet. Aucun compte réel ni déploiement distant n'a été testé.
+  sur une copie isolée du projet, puis inspection du cookie dans un navigateur en
+  production sur Vercel avec un compte de vérification.
 
 Les statuts utilisés sont « Conforme », « Non conforme » et « Risque accepté ».
 Une protection qui ne couvre qu'une partie de l'exigence reste notée non conforme.
@@ -19,7 +20,7 @@ L'acceptation d'un risque doit être justifiée dans le constat.
 | S3 | Les tentatives répétées d'inscription et de connexion sont limitées | Configuration et essais aux seuils ; lecture du traitement des adresses IP | Les essais sont bloqués à partir de la 41e inscription ou de la 61e connexion en une minute (`429`). Mais la limitation reste désactivable en production hors Vercel et les compteurs ne sont pas partagés entre instances. Sur un serveur Next directement exposé, changer `X-Forwarded-For` permet aussi de contourner la limite (A2). | Non conforme |
 | S4 | Le cookie de session est inaccessible au JavaScript de la page | Test sur l'attribut `HttpOnly` | Le cookie porte bien l'attribut `HttpOnly` : le JavaScript de la page ne peut pas le lire. | Conforme |
 | S5 | Le cookie de session n'est pas envoyé par les requêtes émises depuis un autre site | Test sur l'attribut `SameSite` ; lecture des attributs effectifs | Le cookie utilise `SameSite=Lax`. Il peut donc encore être envoyé quand on arrive sur le site par un lien externe. Ce réglage ne répond pas complètement à l'exigence. Les requêtes de modification sont vérifiées en S15. | Non conforme |
-| S6 | Le cookie de session ne circule que sur des connexions chiffrées | Inspection des réponses `Set-Cookie` avec URL HTTP et HTTPS, dont configuration de production | Avec une URL HTTPS, le cookie est `Secure`. Avec une URL HTTP, il ne l'est pas, même en production. Le code n'impose pas HTTPS ; le déploiement réel reste à vérifier. | Non conforme |
+| S6 | Le cookie de session ne circule que sur des connexions chiffrées | Inspection du cookie dans le navigateur ; comparaison entre le serveur local et le déploiement Vercel | En production, le cookie se nomme `__Secure-better-auth.session_token` et porte les attributs `Secure` et `HttpOnly` : le navigateur ne le transmet que sur HTTPS. En local, sur `http://localhost`, l'attribut `Secure` est absent. | Conforme |
 | S7 | Le secret de signature n'est pas versionné, et son absence en production empêche le démarrage | Recherche des références versionnées ; `resolveSecret` ; essais sans secret | Sans secret configuré, seule la production sur Vercel est bloquée. Ailleurs, le code reprend le secret de développement présent dans le dépôt. Ce secret a permis d'obtenir la session d'un compte de test (A1). | Non conforme |
 | S8 | La connexion ne révèle pas si une adresse est inscrite | Test comparant statut et corps pour adresse inconnue et mauvais mot de passe | Une adresse inconnue et un mauvais mot de passe donnent la même réponse : `401`, avec `INVALID_EMAIL_OR_PASSWORD`. Les temps de réponse n'ont pas été comparés. | Conforme |
 | S9 | L'inscription ne révèle pas si une adresse est inscrite | Deux inscriptions avec la même adresse de test | La première inscription réussit (`200`). La seconde est refusée (`422`) et affiche « Cette adresse est déjà utilisée. ». On peut donc savoir si une adresse possède un compte. | Non conforme |
@@ -33,17 +34,15 @@ L'acceptation d'un risque doit être justifiée dans le constat.
 
 ## Synthèse
 
-**16 exigences : 10 conformes, 6 non conformes et 0 risque accepté.**
+**16 exigences : 11 conformes, 5 non conformes et 0 risque accepté.**
 
 Les contrôles d'accès au Village, le stockage des mots de passe et la révocation
-normale des sessions fonctionnent dans les scénarios vérifiés. La revue ne valide
-pas une mise en production en l'état : le repli sur le secret de développement
-constitue la correction prioritaire. Les constats décrivent le code examiné ;
-les corrections ci-dessous ne sont pas encore appliquées.
+normale des sessions fonctionnent dans les scénarios vérifiés. S6 et S16 sont conformes :
+le cookie de production est limité à HTTPS et les canaux temps réel sont protégés.
 
-S16 est conforme. Pour S6, je conserve le statut non conforme tant que le cookie
-de production n'a pas été vérifié dans le navigateur. Le résultat attendu sur
-Vercel est un cookie `__Secure-better-auth.session_token` portant l'attribut `Secure`.
+Les non-conformités S3, S5, S7, S9 et S12 restent documentées. En particulier, le
+repli sur le secret de développement doit être corrigé avant une exposition hors
+Vercel ; la production Vercel refuse déjà de démarrer sans secret configuré.
 
 ## Actions à traiter
 
@@ -51,7 +50,7 @@ Vercel est un cookie `__Secure-better-auth.session_token` portant l'attribut `Se
 | --- | --- | --- | --- |
 | A1 — Prioritaire avant exposition publique | S7 | Refuser toute production sans secret aléatoire propre à l'installation, indépendamment de Vercel. Réserver le repli aux environnements locaux. Vérifier la configuration avant de servir les requêtes. | Tests avec et sans `VERCEL` : aucune initialisation de production sans secret. Un jeton signé avec la constante de développement est rejeté. |
 | A2 — Avant exposition publique | S3 | Interdire la désactivation de la limitation en production ; définir une source d'adresse IP fiable. Si un proxy est utilisé, lui faire remplacer les en-têtes entrants et empêcher l'accès direct au serveur. Partager les compteurs entre instances lorsque nécessaire. | Dépassements renvoyant `429`, y compris avec `AUTH_RATE_LIMIT=off` en production ; changement d'un en-tête fourni par le client sans remise à zéro du compteur effectif. |
-| A3 — Avant exposition publique | S6 | Exiger une URL publique HTTPS en production, contrôler la terminaison TLS et les attributs réellement reçus par le navigateur. Conserver l'exception HTTP pour le développement local uniquement. | Configuration HTTP de production refusée ; cookie de production `Secure`, `HttpOnly`, avec politique `SameSite` validée. |
+| A3 — Vérifiée sur Vercel | S6 | Contrôler HTTPS et les attributs du cookie sur le déploiement réel. Imposer également HTTPS si un autre hébergement est utilisé. | Sur Vercel, cookie `__Secure-better-auth.session_token` observé avec `Secure` et `HttpOnly`. Le comportement `SameSite=Lax` reste traité séparément en S5. |
 | A4 — À décider avant validation de la revue | S9 | Concevoir une inscription à réponse générique, avec un parcours de vérification adapté et sans connexion automatique révélant la différence entre adresse nouvelle et existante. Changer seulement le texte du formulaire ne suffit pas. | Statut, corps et effets observables du parcours ne permettent plus de distinguer les deux cas ; sinon, décision explicite et documentée d'acceptation du risque. |
 | A5 — Clarifier l'exigence | S5 | Choisir entre l'interdiction stricte des envois intersites et le comportement `Lax` actuel. Si `Lax` est conservé, reformuler l'exigence et documenter les navigations permises avec les contrôles CSRF complémentaires. | Exigence cohérente avec la politique du cookie et tests navigateur des scénarios retenus. |
 | A6 — Consolider la protection des pages | S12 | Conserver la redirection du layout et vérifier l'identité au plus près de tout futur accès serveur à des données privées. Ne pas utiliser le layout comme unique frontière d'autorisation. | Tests d'accès direct, de navigation et de session expirée ; aucun accès aux données privées sans contrôle serveur. |
@@ -125,8 +124,9 @@ Les comportements de bibliothèque ont été vérifiés dans les sources install
 section « Layouts and auth checks », décrit les limites d'une garde de layout.
 
 La revue n'est pas une certification OWASP. Elle ne vérifie ni l'historique Git
-des secrets, ni la configuration d'un hébergement, ni TLS dans un navigateur de
-production, ni la résistance temporelle de l'authentification. La garantie S13
+des secrets, ni l'ensemble de la configuration de l'hébergement, ni la résistance
+temporelle de l'authentification. Le cookie HTTPS a été vérifié sur Vercel ; ce constat
+ne couvre pas un autre hébergement. La garantie S13
 ne couvre pas les erreurs d'initialisation survenant avant l'entrée dans Hono.
 Pour S14, une panne de base pendant la suppression de session n'a pas été
 simulée ; Better Auth journalise cette erreur, ce qui mérite un test de panne
