@@ -7,7 +7,7 @@ en une plateforme technique et en modules métier aux frontières vérifiées au
 ## Prérequis
 
 - Node.js 22 ou supérieur
-- pnpm 10
+- pnpm 12.14.0 (version indiquée dans `package.json`)
 
 ## Démarrage
 
@@ -17,6 +17,15 @@ pnpm dev
 ```
 
 L'application est disponible à l'adresse http://localhost:3000.
+
+## Comptes et configuration
+
+Créez un compte sur http://localhost:3000/login pour accéder au jeu.
+Chaque joueur dispose de son propre village.
+
+Le fichier `.env.example` décrit les variables disponibles. Aucune n'est nécessaire
+pour démarrer en local. Pour personnaliser la configuration, copiez ce fichier en
+`.env.local` ; ce dernier est exclu du dépôt.
 
 ## Commandes
 
@@ -66,6 +75,7 @@ Les tests utilisent une base PGlite en mémoire, recréée pour chaque fichier d
 
 - [Décisions d'architecture](docs/adr/README.md)
 - [Registre de la dette technique](docs/qualite/dette-technique.md)
+- [Revue de sécurité de l'authentification](docs/qualite/revue-securite-authentification.md)
 
 ## Conventions
 
@@ -74,6 +84,6 @@ Les tests utilisent une base PGlite en mémoire, recréée pour chaque fichier d
 
 ## Limites actuelles
 
-Le projet est en cours de construction. Toutes les requêtes sont attribuées à un joueur
-unique, en attendant l'authentification. Cette limite est recensée dans le registre de
-la dette technique.
+Le projet fonctionne pour l'instant en local. Le déploiement est prévu au TD5.
+Les points à corriger avant une exposition publique sont détaillés dans la revue
+de sécurité, notamment la gestion du secret de production.
