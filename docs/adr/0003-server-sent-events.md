@@ -21,8 +21,8 @@ Le journal introduit par l'[ADR 0002](0002-event-sourcing-village.md) conserve d
 
 ## Décision
 
-Diffuser les changements par des Server-Sent Events sur `/api/stream/<canal>`. Chaque canal
-correspond exactement à un flux du journal. La version d'un événement sert d'identifiant
+Je retiens les Server-Sent Events pour diffuser les changements sur `/api/stream/<canal>`.
+Chaque canal correspond exactement à un flux du journal. La version d'un événement sert d'identifiant
 SSE ; lors d'une reconnexion, l'en-tête `Last-Event-ID` permet de reprendre après le dernier
 événement reçu.
 
@@ -81,12 +81,11 @@ le hook actuel utilise uniquement SSE.
 
 ## Réexamen
 
-Mesurer les lectures, la charge de la base et le délai de notification lorsque le nombre
-d'abonnements augmente : `N` flux produisent environ `2 × N` lectures par seconde, avant
-les relectures des vues. Réexaminer le choix si cette charge dégrade les réponses ou
-dépasse les ressources de l'offre retenue.
+Je réexaminerai ce choix si les lectures du journal dégradent les temps de réponse ou
+dépassent les ressources de l'offre retenue. La charge dépend du nombre d'abonnements :
+`N` flux produisent environ `2 × N` lectures par seconde, avant les relectures des vues.
 
-Le revoir également si le jeu exige des échanges bidirectionnels à très faible délai,
+Je le réexaminerai également si le jeu exige des échanges bidirectionnels à très faible délai,
 si les interruptions ou les réseaux incompatibles deviennent fréquents, ou si l'hébergeur
 propose une prise en charge stable des WebSocket adaptée aux contraintes du projet.
 
@@ -95,7 +94,7 @@ systématiquement ; elle n'ajoute donc pas d'entrée au registre de la dette tec
 
 ## Usage de l'IA générative
 
-Cet ADR a été rédigé avec l'assistance de Codex à partir du TD5, du modèle d'ADR et du code
-du projet. Les routes, les règles des canaux et le hook ont été comparés aux consignes.
-Les 58 tests, les contrôles de types et les règles d'architecture ont réussi en environnement
-normal et avec `VERCEL=1 NODE_ENV=production`.
+J'ai utilisé Codex pour m'aider à rédiger cet ADR et à vérifier mon implémentation à partir
+des consignes du TD5. Les vérifications ont porté sur les routes SSE, les règles d'accès
+aux canaux et le hook d'abonnement. Les 58 tests, les contrôles de types et d'architecture
+réussissent en environnement normal et avec `VERCEL=1 NODE_ENV=production`.

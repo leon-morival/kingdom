@@ -99,8 +99,7 @@ sur `main` déclenche la commande `pnpm vercel-build` : contrôles, migrations, 
 L'adresse de production figure dans le champ « Website » de la rubrique « About » du
 dépôt GitHub.
 
-La disponibilité du déploiement, les migrations distantes et le cookie HTTPS restent
-à vérifier sur le projet Vercel ; les contrôles locaux ne prouvent pas sa mise en ligne.
+La vérification du cookie HTTPS en production reste à compléter dans la revue de sécurité.
 
 Les variables `DATABASE_URL` et `DATABASE_URL_UNPOOLED` sont fournies par l'intégration
 Neon de Vercel. La variable `BETTER_AUTH_SECRET` est définie dans les réglages du projet

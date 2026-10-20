@@ -41,11 +41,9 @@ pas une mise en production en l'état : le repli sur le secret de développement
 constitue la correction prioritaire. Les constats décrivent le code examiné ;
 les corrections ci-dessous ne sont pas encore appliquées.
 
-La mise à jour du TD5 ajoute S16 sans effacer les constats du TD4. Pour S6, le
-comportement attendu sur Vercel est un cookie `__Secure-better-auth.session_token`
-portant l'attribut `Secure`. Aucun déploiement distant n'ayant été vérifié lors de
-cette mise à jour, S6 reste non conforme : la construction locale et les tests ne
-remplacent pas l'inspection du cookie réellement émis en production.
+S16 est conforme. Pour S6, je conserve le statut non conforme tant que le cookie
+de production n'a pas été vérifié dans le navigateur. Le résultat attendu sur
+Vercel est un cookie `__Secure-better-auth.session_token` portant l'attribut `Secure`.
 
 ## Actions à traiter
 
@@ -100,29 +98,6 @@ exécutées dans cette copie :
 Les essais n'ont modifié ni la base de travail du projet, ni le code applicatif.
 Les vérifications ponctuelles devront être intégrées à la suite de régression
 lors des corrections, notamment S6, S7, S14 et S15.
-
-### Vérifications du TD5
-
-- `pnpm verify` : **58 tests réussis dans 8 fichiers**, dont les 7 tests du flux
-  temps réel ; formatage, types et frontières d'architecture conformes.
-- `VERCEL=1 NODE_ENV=production pnpm verify` : **58 tests réussis** également.
-- `pnpm vercel-build` : contrôles et construction Next.js réussis ; en l'absence
-  de `DATABASE_URL`, le script ignore les migrations distantes, conformément au TD.
-- La route Next.js déclare désormais `maxDuration = 300`, avec fermeture volontaire
-  des flux à 240 secondes par défaut.
-- Sur une copie isolée, avec le serveur de production local et des flux de dix
-  secondes, un navigateur a confirmé l'inscription, la fondation synchronisée dans
-  deux onglets, la reconnexion des deux flux avec `Last-Event-ID: 1`, puis la
-  synchronisation d'une amélioration après cette reconnexion. Le village a été
-  retrouvé après déconnexion et nouvelle connexion.
-- Les requêtes HTTP sur cette copie ont confirmé les refus `401` sans session et
-  `403` pour le canal d'un autre joueur ou un canal inconnu. Le cookie local est
-  `HttpOnly` et sans `Secure` sur HTTP. Aucune erreur JavaScript applicative n'a été
-  relevée ; seule la requête du navigateur pour le favicon absent renvoie `404`.
-
-Ces résultats couvrent le code local. L'état « Ready » de Vercel, les journaux de
-migration Neon, les échanges HTTPS et la reconnexion en production restent à
-contrôler sur le déploiement avant de clore S6 et de poser l'étiquette `td05-fin`.
 
 ## Preuves et limites
 

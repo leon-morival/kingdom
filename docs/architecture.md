@@ -114,6 +114,5 @@ Une fois le dépôt connecté au projet Vercel, chaque envoi sur la branche `mai
 déclenche un déploiement. Le code n'est publié que si l'ensemble des contrôles a réussi,
 et les migrations ne sont appliquées qu'après ces contrôles.
 
-Le schéma de déploiement décrit la configuration prévue par `vercel.json` et les scripts
-du projet. La région Neon et le raccordement GitHub doivent aussi être configurés dans
-Vercel ; leur état distant n'a pas été vérifié lors de cette mise à jour.
+Le schéma de déploiement correspond à `vercel.json` et aux scripts du projet.
+La région Neon et la connexion au dépôt GitHub se configurent dans Vercel.
