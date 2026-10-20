@@ -9,6 +9,7 @@ Dans le code, chaque raccourci est signalé par un commentaire commençant par
 
 | N° | Raccourci | Conséquences | Échéance | Statut |
 | --- | --- | --- | --- | --- |
-| DT-001 | Joueur unique : toutes les requêtes sont attribuées au joueur `demo` (`src/platform/http/demo-user.ts`) | Aucune séparation entre joueurs ; aucun contrôle d'accès | TD4 (authentification) | Ouverte |
+| DT-001 | Joueur unique : toutes les requêtes sont attribuées au joueur `demo` | Aucune séparation entre joueurs ; aucun contrôle d'accès | TD4 (authentification) | Remboursée au TD4 : identification par Better Auth et contrôle d'accès avec `requireUser` |
 | DT-002 | Stockage en mémoire des événements du Village | Données perdues à chaque redémarrage ; non partagées entre plusieurs instances | TD3 (journal d'événements) | Remboursée au TD3 : adaptateur fondé sur le journal d'événements |
 | DT-003 | Conflit de version non traité par le service du Village | Deux commandes simultanées : la seconde échoue avec une erreur 500 au lieu d'être rejouée | TD3 (concurrence optimiste) | Remboursée au TD3 : nouvel essai par `withOptimisticRetry` |
+| DT-004 | Compteurs de tentatives d'authentification en mémoire dans chaque instance (`src/platform/auth/better-auth.ts`) | Les instances ne partagent pas leurs compteurs : la limite globale augmente avec leur nombre | TD11 (revue de qualité) | Ouverte |
