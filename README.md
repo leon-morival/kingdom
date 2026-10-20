@@ -20,12 +20,12 @@ L'application est disponible à l'adresse http://localhost:3000.
 
 ## Comptes et configuration
 
-Créez un compte sur http://localhost:3000/login pour accéder au jeu.
-Chaque joueur dispose de son propre village.
+L'espace de jeu est réservé aux joueurs connectés. Créez un compte depuis la page
+http://localhost:3000/login.
 
-Le fichier `.env.example` décrit les variables disponibles. Aucune n'est nécessaire
-pour démarrer en local. Pour personnaliser la configuration, copiez ce fichier en
-`.env.local` ; ce dernier est exclu du dépôt.
+Les variables d'environnement sont documentées dans le fichier `.env.example`. En local,
+aucune n'est obligatoire. Pour définir vos propres valeurs, copiez ce fichier en
+`.env.local`, qui n'est jamais versionné.
 
 ## Commandes
 
@@ -41,6 +41,8 @@ pour démarrer en local. Pour personnaliser la configuration, copiez ce fichier 
 | `pnpm test` | Exécution des tests (Vitest) |
 | `pnpm verify` | Ensemble des contrôles, à exécuter avant toute publication |
 | `pnpm db:generate --name <nom>` | Production d'une migration après la modification d'un fichier `schema.ts` |
+| `pnpm db:migrate` | Application des migrations à la base désignée par `DATABASE_URL_UNPOOLED` ou `DATABASE_URL` |
+| `pnpm vercel-build` | Construction exécutée par Vercel : contrôles, migrations, puis construction |
 
 ## Architecture
 
@@ -51,8 +53,12 @@ src/
   modules/            Modules métier, un répertoire par contexte délimité
   bootstrap/          Racine de composition
   ui/                 Thème et composants d'interface partagés
+scripts/              Scripts d'exploitation (migrations)
+drizzle/              Migrations de la base de données
 docs/
   adr/                Décisions d'architecture
+  qualite/            Dette technique et revues
+  architecture.md     Description de l'architecture (modèle C4)
 ```
 
 Un module n'est accessible depuis l'extérieur que par ses entrées publiques : `index.ts`
@@ -63,6 +69,17 @@ Un module n'est accessible depuis l'extérieur que par ses entrées publiques : 
 | `system` | Route de santé | `/api/system` |
 | `realm` | Village : fondation, production de ressources, amélioration des bâtiments | `/api/realm` |
 
+## Temps réel
+
+Les changements sont diffusés aux navigateurs par des Server-Sent Events, à l'adresse
+`/api/stream/<canal>`. Chaque canal correspond à un flux du journal d'événements ; il n'est
+accessible qu'aux joueurs connectés autorisés par la règle du module concerné. Le canal
+`village-<joueur>` n'est ainsi accessible qu'au propriétaire du village.
+
+Un flux se ferme de lui-même au bout de 240 secondes, et le navigateur s'y reconnecte
+sans perte d'événement. En développement, la variable `STREAM_MAX_SECONDS` permet de
+raccourcir cette durée pour observer la reconnexion.
+
 ## Base de données
 
 En développement, la base PostgreSQL est fournie par PGlite et conservée dans le répertoire
@@ -71,8 +88,28 @@ démarrage. Pour repartir d'une base vide, arrêtez le serveur et supprimez le r
 
 Les tests utilisent une base PGlite en mémoire, recréée pour chaque fichier de test.
 
+La configuration de production utilise Neon. Les migrations y sont appliquées lors de
+chaque déploiement, après les contrôles et avant la construction de l'application.
+
+## Déploiement
+
+Le projet est préparé pour Vercel, dans la région de Francfort (`fra1`), avec une base
+Neon dans la même région. Après connexion du dépôt GitHub au projet Vercel, chaque envoi
+sur `main` déclenche la commande `pnpm vercel-build` : contrôles, migrations, construction.
+L'adresse de production figure dans le champ « Website » de la rubrique « About » du
+dépôt GitHub.
+
+La disponibilité du déploiement, les migrations distantes et le cookie HTTPS restent
+à vérifier sur le projet Vercel ; les contrôles locaux ne prouvent pas sa mise en ligne.
+
+Les variables `DATABASE_URL` et `DATABASE_URL_UNPOOLED` sont fournies par l'intégration
+Neon de Vercel. La variable `BETTER_AUTH_SECRET` est définie dans les réglages du projet
+Vercel ; elle n'est jamais versionnée, et l'application refuse de démarrer sans elle
+en production sur Vercel. Les limites hors Vercel sont décrites dans la revue de sécurité.
+
 ## Documentation
 
+- [Architecture](docs/architecture.md)
 - [Décisions d'architecture](docs/adr/README.md)
 - [Registre de la dette technique](docs/qualite/dette-technique.md)
 - [Revue de sécurité de l'authentification](docs/qualite/revue-securite-authentification.md)
@@ -84,6 +121,7 @@ Les tests utilisent une base PGlite en mémoire, recréée pour chaque fichier d
 
 ## Limites actuelles
 
-Le projet fonctionne pour l'instant en local. Le déploiement est prévu au TD5.
-Les points à corriger avant une exposition publique sont détaillés dans la revue
-de sécurité, notamment la gestion du secret de production.
+Chaque flux temps réel relit le journal d'événements deux fois par seconde : la charge de
+la base croît avec le nombre de joueurs connectés. Ce compromis, acceptable pour le nombre
+de joueurs du projet, est décrit dans l'ADR 0003. Les autres limites connues sont recensées
+dans le registre de la dette technique.
