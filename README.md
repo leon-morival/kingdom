@@ -43,6 +43,7 @@ aucune n'est obligatoire. Pour définir vos propres valeurs, copiez ce fichier e
 | `pnpm db:generate --name <nom>` | Production d'une migration après la modification d'un fichier `schema.ts` |
 | `pnpm db:migrate` | Application des migrations à la base désignée par `DATABASE_URL_UNPOOLED` ou `DATABASE_URL` |
 | `pnpm vercel-build` | Construction exécutée par Vercel : contrôles, migrations, puis construction |
+| `pnpm exec tsx scripts/simulate-dungeon.ts` | Mesure de l'équilibre du Donjon par la simulation d'expéditions |
 
 ## Architecture
 
@@ -68,7 +69,7 @@ Un module n'est accessible depuis l'extérieur que par ses entrées publiques : 
 | --- | --- | --- |
 | `system` | Route de santé | `/api/system` |
 | `realm` | Village : fondation, production de ressources, amélioration des bâtiments | `/api/realm` |
-| `dungeon` | Donjon : expéditions de un à quatre héros, exploration et combats en manches simultanées | `/api/dungeon` |
+| `dungeon` | Donjon : expéditions de un à quatre héros, compagnons pilotés par l'ordinateur, deux niveaux de difficulté, combats en manches simultanées | `/api/dungeon` |
 
 ## Temps réel
 
@@ -127,7 +128,9 @@ Chaque flux temps réel relit le journal d'événements deux fois par seconde : 
 la base croît avec le nombre de joueurs connectés. Ce compromis, acceptable pour le nombre
 de joueurs du projet, est décrit dans l'ADR 0003.
 
-Une manche du Donjon dont l'échéance est passée n'est enregistrée qu'à la prochaine
-commande acceptée ; toute lecture l'affiche néanmoins comme résolue (ADR 0004).
-Les autres limites connues, dont la liste des expéditions ouvertes et l'absence d'échéance
-pendant l'exploration, sont recensées dans le registre de la dette technique.
+Une échéance du Donjon, en combat ou pendant l'exploration, n'est enregistrée qu'à la
+prochaine commande acceptée ; toute lecture en affiche néanmoins les effets (ADR 0004).
+Les expéditions de quatre joueurs restent faciles, même au niveau difficile :
+l'équilibre est mesuré par le script de simulation, et décrit dans l'ADR 0005.
+Les autres limites connues, dont le coût de la liste des expéditions ouvertes,
+sont recensées dans le registre de la dette technique.

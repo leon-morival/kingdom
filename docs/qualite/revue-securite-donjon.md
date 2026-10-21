@@ -1,7 +1,7 @@
 # Revue de sécurité du Donjon : dissimulation d'informations et intégrité du jeu
 
 - Date : 2026-10-21
-- Périmètre : API du module Donjon, canal temps réel des expéditions, tirages au sort.
+- Périmètre : API du module Donjon, canal temps réel des expéditions, tirages au sort, stratégies des monstres et compagnons.
 - Références : OWASP Top 10 (A01 Broken Access Control, A04 Insecure Design), catégories retenues dans le TD6.
 
 | N° | Exigence | Vérification | Constat | Statut |
@@ -16,10 +16,12 @@
 | D8 | L'échéance d'une manche est appréciée par l'horloge du serveur | Commande HTTP d'échéance envoyée avant la fin des trente secondes ; comparaison du journal avant et après | La commande anticipée renvoie `200`, avec le même numéro de manche et la même échéance ; aucun événement n'est ajouté. Ajouter une heure future au corps ne change rien : le service utilise `clock()`, dont la valeur par défaut est `Date.now()`. Après l'échéance, la résolution est enregistrée et le héros sans choix se défend. | Conforme |
 | D9 | Une action destinée à une manche déjà résolue est refusée | Test « refuse un choix pour une manche déjà résolue » ; action HTTP pour la manche précédente | Après la résolution de la manche 1, soumettre une action pour cette manche renvoie `409`, `ROUND_OVER`. Le choix n'est pas reporté sur la manche 2. | Conforme |
 | D10 | Connaître l'adresse d'une expédition ne permet pas d'y agir sans en être membre | Action puis commande d'échéance envoyées par une troisième session non membre ; lecture des routes et du domaine | L'action de Carol reçoit `403`, `NOT_A_MEMBER`, même avec l'identifiant d'Alice dans le corps. La consultation reste possible (`200`, `isMember: false`) avec une vue publique filtrée : ce choix permet de rejoindre une expédition par son adresse, dont l'UUID aléatoire rend la découverte par énumération impraticable. En revanche, la route `deadline` ne vérifie pas l'appartenance : après l'échéance, Carol obtient `200` et provoque l'enregistrement de la résolution. Elle ne choisit pas les actions ni l'heure de résolution, mais peut modifier le journal sans être membre. | Non conforme |
+| D11 | Aucun joueur ne peut agir au nom d'un compagnon ni écouter le canal en son nom | Test « présente le compagnon comme prêt, et ne le compte pas parmi les membres » ; lecture de `rules.ts`, `api.ts` et de la règle du canal | Une commande `SubmitAction` visant l'identité `companion-1` est refusée avec `NOT_A_MEMBER`. Les routes prennent l'identité dans la session. `isMember` et `toView` excluent les compagnons ; la règle du canal utilise ce même indicateur et refuse donc une identité de compagnon. Les compagnons n'ont ni compte ni session. | Conforme |
+| D12 | L'intelligence artificielle ne transmet aux joueurs aucune information qu'ils n'auraient pas autrement | Lecture de `companion.ts`, `monster-strategies.ts`, `rules.ts` et `view.ts` ; tests de la vue et des canaux discrets | Le compagnon ne reçoit que les héros et monstres debout au début de la résolution, sans les actions choisies par les joueurs. Les monstres utilisent ces actions après les actions des héros, sur le serveur. Les résultats sont enregistrés dans `RoundResolved` et exposés dans `lastRound` une fois la manche résolue ; avant cela, les choix restent filtrés et les événements du canal ont des données vides. | Conforme |
 
 ## Synthèse
 
-**10 exigences : 9 conformes aux contrôles du TD, 1 non conforme et 0 exigence
+**12 exigences : 11 conformes aux contrôles du TD, 1 non conforme et 0 exigence
 classée en risque accepté.** La conformité de D7 porte sur l'origine et la non-divulgation
 de la graine, sans garantie cryptographique sur la prévisibilité du générateur.
 
@@ -37,14 +39,23 @@ consigne le comportement actuel sans modifier la règle d'accès.
 
 ## Vérifications et limites
 
-La commande `pnpm test` a réussi : **107 tests dans 14 fichiers**. La lecture du code
-a porté sur les routes, le service, les règles, la vue filtrée et les règles des canaux.
+La suite exécutée par `pnpm verify` a réussi : **131 tests dans 17 fichiers**.
+La lecture du code a porté sur les routes, le service, les règles, la vue filtrée,
+les règles des canaux et les fonctions de décision des monstres et compagnons.
 
 Les essais complémentaires ont utilisé le serveur Next.js local, le véritable adaptateur
 Better Auth et trois sessions séparées. Une expédition à deux a été créée, rejointe,
 lancée, jouée jusqu'à un combat puis terminée par une défaite. Les réponses HTTP,
 les événements SSE et la route JSON de repli ont été inspectés directement. Les sessions
 ont été déconnectées à la fin des essais.
+
+Au TD7, deux sessions distinctes ont également vérifié par HTTP le choix de difficulté,
+le refus d'un niveau inconnu, l'ajout de compagnons réservé à l'hôte et leur prise en
+compte dans les places disponibles. Une échéance d'exploration d'une minute a été
+attendue : la lecture a montré la porte ouverte sans modifier le journal, puis la
+commande d'échéance a enregistré l'ouverture. En solo, le choix du joueur a résolu
+immédiatement la manche avec l'action du compagnon. Une expédition à plusieurs avec
+compagnons a été terminée sans qu'un compagnon soit désigné pour ouvrir une porte.
 
 Aucun navigateur pilotable n'était disponible : les manipulations dans les outils de
 développement et la mise à jour visuelle des deux fenêtres n'ont pas été vérifiées.
@@ -55,5 +66,6 @@ Les principaux points de contrôle sont :
 
 - [Routes du Donjon](../../src/modules/dungeon/api.ts) et [service](../../src/modules/dungeon/application/dungeon-service.ts).
 - [Règles du jeu](../../src/modules/dungeon/domain/rules.ts), [générateur](../../src/modules/dungeon/domain/random.ts) et [vue filtrée](../../src/modules/dungeon/domain/view.ts).
+- [Décisions des compagnons](../../src/modules/dungeon/domain/companion.ts), [stratégies des monstres](../../src/modules/dungeon/domain/monster-strategies.ts) et [tests des compagnons](../../src/modules/dungeon/domain/companion.test.ts).
 - [Règle du canal](../../src/modules/dungeon/index.ts) et [flux SSE et repli](../../src/platform/realtime/stream-api.ts).
 - [Tests de l'API](../../src/bootstrap/dungeon-api.test.ts), [tests du temps réel](../../src/bootstrap/dungeon-realtime.test.ts) et [tests des canaux discrets](../../src/platform/realtime/stream-api.test.ts).
