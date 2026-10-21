@@ -10,7 +10,7 @@ export default defineConfig({
     // Seuls les fichiers de test placés dans src/ sont exécutés.
     include: ['src/**/*.test.ts'],
     // Le démarrage de plusieurs bases PGlite en parallèle peut dépasser cinq secondes.
-    testTimeout: 15_000,
+    testTimeout: 20_000,
     hookTimeout: 15_000,
     // Les tests s'exécutent toujours dans un environnement de test, y compris lorsqu'ils
     // sont lancés par la construction Vercel, où NODE_ENV vaut « production ».

@@ -39,3 +39,6 @@ export function createDungeonModule({ store, clock }: DungeonModuleDeps) {
 }
 
 export type { DungeonApi } from './api'
+
+/** Mesure de l'équilibre du Donjon, utilisée par le script de simulation. */
+export { winRate } from './domain/simulation'
