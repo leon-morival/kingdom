@@ -9,6 +9,8 @@ import { useCountdown } from '@/ui/use-countdown'
 import type { DungeonApi } from './api'
 import {
   type Action,
+  DIFFICULTIES,
+  type Difficulty,
   type Effect,
   type GameError,
   type GameView,
@@ -34,13 +36,16 @@ const ERRORS: Record<ApiError['code'], string> = {
   GAME_FULL: "L'expédition est complète.",
   ALREADY_JOINED: "Vous faites déjà partie de l'expédition.",
   NOT_A_MEMBER: "Vous ne faites pas partie de l'expédition.",
-  NOT_HOST: "Seul l'hôte peut lancer l'expédition.",
+  NOT_HOST: "Seul l'hôte peut effectuer cette action.",
   NOT_YOUR_TURN: "Ce n'est pas votre tour.",
   HERO_DOWN: 'Votre héros est tombé.',
   ROUND_OVER: 'La manche est déjà terminée.',
   ALREADY_CHOSEN: 'Vous avez déjà choisi votre action.',
   INVALID_TARGET: 'Cible invalide.',
 }
+
+/** Libellé de chaque niveau de difficulté. */
+const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Facile', hard: 'Difficile' }
 
 /** Libellé affiché pour chaque état de la connexion temps réel. */
 const STATUS_LABELS = {
@@ -57,6 +62,7 @@ const STATUS_LABELS = {
 export function DungeonLobby() {
   const router = useRouter()
   const [games, setGames] = useState<OpenGame[] | undefined>(undefined)
+  const [difficulty, setDifficulty] = useState<Difficulty>('easy')
 
   const refresh = useCallback(async () => {
     const res = await client.games.$get()
@@ -68,7 +74,7 @@ export function DungeonLobby() {
   }, [refresh])
 
   async function open() {
-    const res = await client.games.$post()
+    const res = await client.games.$post({ json: { difficulty } })
     if (res.ok) router.push(`/dungeon/${(await res.json()).gameId}`)
   }
 
@@ -77,7 +83,22 @@ export function DungeonLobby() {
       <h1 className="flex items-center gap-3 text-3xl font-bold">
         <Entity kind="dungeon" /> Donjon
       </h1>
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+        <label htmlFor="difficulty" className="text-sm font-medium">
+          Niveau
+        </label>
+        <select
+          id="difficulty"
+          className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          value={difficulty}
+          onChange={(event) => setDifficulty(event.target.value as Difficulty)}
+        >
+          {DIFFICULTIES.map((level) => (
+            <option key={level} value={level}>
+              {DIFFICULTY_LABELS[level]}
+            </option>
+          ))}
+        </select>
         <button
           type="button"
           className="cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
@@ -147,6 +168,9 @@ function describeAction(action: Action, nameOf: (id: string) => string) {
   return 'se défendre'
 }
 
+/** Préposition « de » devant un verbe à l'infinitif, élidée devant une voyelle. */
+const ofVerb = (text: string) => (/^[aeéiou]/i.test(text) ? `d'${text}` : `de ${text}`)
+
 /** Description d'un effet de la dernière manche. */
 function describeEffect(effect: Effect, nameOf: (id: string) => string) {
   return effect.kind === 'damage'
@@ -186,6 +210,8 @@ export function DungeonGame({ gameId, userId }: { gameId: string; userId: string
       setView(body.view)
     }
   }
+  const addCompanion = async () =>
+    handle(await (await client.games[':id'].companion.$post({ param })).json())
   const join = async () => handle(await (await client.games[':id'].join.$post({ param })).json())
   const start = async () => handle(await (await client.games[':id'].start.$post({ param })).json())
   const openDoor = async () =>
@@ -199,21 +225,28 @@ export function DungeonGame({ gameId, userId }: { gameId: string; userId: string
     handle(await res.json())
   }
 
-  // ÉCHÉANCE : lorsque le compte à rebours atteint zéro, la commande d'échéance fait
-  // enregistrer la résolution de la manche, et donc notifier tous les membres.
+  // ÉCHÉANCE : à la fin d'une manche ou d'un tour d'exploration, la commande fait
+  // enregistrer la suite de l'expédition, et donc notifier tous les membres.
   const checkDeadline = useCallback(async () => {
     const res = await client.games[':id'].deadline.$post({ param: { id: gameId } })
     if (res.ok) setView((await res.json()).view)
   }, [gameId])
   const remaining = useCountdown(
-    view?.isMember && view.phase === 'combat' ? view.deadline : null,
+    view?.isMember && (view.phase === 'combat' || view.phase === 'exploring')
+      ? view.deadline
+      : null,
     checkDeadline,
   )
 
   const title = (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <h1 className="flex items-center gap-3 text-3xl font-bold">
+      <h1 className="flex flex-wrap items-center gap-3 text-3xl font-bold">
         <Entity kind="dungeon" /> Expédition
+        {view && (
+          <span className="text-lg font-normal text-gray-500">
+            - {DIFFICULTY_LABELS[view.difficulty]}
+          </span>
+        )}
       </h1>
       {view?.isMember && (
         <span
@@ -278,9 +311,15 @@ export function DungeonGame({ gameId, userId }: { gameId: string; userId: string
             data-down={hero.hp <= 0}
           >
             <span className="min-w-0 break-words font-medium">
-              <Entity kind="hero" /> {hero.name}
+              <Entity kind={hero.companion ? 'companion' : 'hero'} /> {hero.name}
               {hero.id === view.hostId && (
                 <span className="text-sm font-normal text-gray-500"> (hôte)</span>
+              )}
+              {hero.companion && (
+                <span className="text-sm font-normal text-gray-500">
+                  {' '}
+                  (piloté par l'ordinateur)
+                </span>
               )}
             </span>
             <span className="text-sm text-gray-500 tabular-nums">
@@ -311,6 +350,15 @@ export function DungeonGame({ gameId, userId }: { gameId: string; userId: string
               Rejoindre l'expédition
             </button>
           )}
+          {view.isHost && view.heroes.length < MAX_HEROES && (
+            <button
+              type="button"
+              className="mr-3 cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              onClick={addCompanion}
+            >
+              <Entity kind="companion" /> Ajouter un compagnon
+            </button>
+          )}
           {view.isHost && (
             <button
               type="button"
@@ -329,7 +377,17 @@ export function DungeonGame({ gameId, userId }: { gameId: string; userId: string
       {/* Exploration : ouvrir la porte suivante, à tour de rôle. */}
       {view.phase === 'exploring' && (
         <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-          <h2 className="text-lg font-semibold">Exploration</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Exploration</h2>
+            {remaining !== null && (
+              <span
+                className="rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700 tabular-nums"
+                title="La porte s'ouvrira d'elle-même"
+              >
+                {remaining} s
+              </span>
+            )}
+          </div>
           <p>
             Salle {view.room + 1} sur {view.roomCount}
             {view.currentRoom?.kind === 'treasure' && ` : un trésor de ${view.currentRoom.gold} or`}
@@ -447,7 +505,7 @@ export function DungeonGame({ gameId, userId }: { gameId: string; userId: string
           <ul className="list-disc space-y-1 pl-5 text-sm text-gray-600">
             {Object.entries(view.lastRound.actions).map(([heroId, action]) => (
               <li key={heroId}>
-                {nameOf(heroId)} a choisi de {describeAction(action, nameOf)}.
+                {nameOf(heroId)} a choisi {ofVerb(describeAction(action, nameOf))}.
               </li>
             ))}
             {view.lastRound.effects.map((effect) => (
