@@ -42,6 +42,24 @@ describe('API du module Classement', () => {
     ])
   })
 
+  it('annonce sur son canal les événements du classement, sans leurs données', async () => {
+    const api = await createTestApi()
+    await api.post('/api/dungeon/games', {})
+
+    const res = await api.get('/api/stream/ranking/events?after=0')
+    expect(res.status).toBe(200)
+    const { events } = (await res.json()) as {
+      events: { type: string; position: number; data: unknown }[]
+    }
+    expect(events.map((event) => event.type)).toEqual(['GameCreated'])
+    expect(events[0].position).toBeGreaterThan(0)
+    expect(events[0].data).toEqual({})
+    expect((await api.get('/api/stream/ranking/events?after=0', null)).status).toBe(401)
+    expect((await api.get('/api/stream/ranking-other/events')).status).toBe(403)
+    // La graine de l'expédition, présente dans l'événement GameCreated, n'est pas transmise.
+    expect(JSON.stringify(events)).not.toContain('seed')
+  })
+
   it("ne compte qu'une fois chaque événement, quel que soit le nombre de consultations", async () => {
     const api = await createTestApi()
     await api.post('/api/realm/village', { name: 'Valombre' })
