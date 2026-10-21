@@ -39,6 +39,7 @@ export function openGames(events: GameEventOf[], now: number): OpenGame[] {
         })
         break
       case 'PlayerJoined':
+      case 'CompanionAdded':
         if (game) game.heroCount++
         break
       case 'GameStarted':

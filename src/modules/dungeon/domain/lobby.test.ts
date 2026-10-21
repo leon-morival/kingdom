@@ -15,6 +15,13 @@ const joined = (gameId: string, name: string): GameEventOf => ({
   gameId,
   event: { type: 'PlayerJoined', data: { playerId: name, name, hero, at: T0 } },
 })
+const companion = (gameId: string, number: number): GameEventOf => ({
+  gameId,
+  event: {
+    type: 'CompanionAdded',
+    data: { companionId: `companion-${number}`, name: `Compagnon ${number}`, hero, at: T0 },
+  },
+})
 const started = (gameId: string): GameEventOf => ({
   gameId,
   event: { type: 'GameStarted', data: { rooms: [], at: T0 } } satisfies GameEvent,
@@ -33,12 +40,15 @@ describe('Donjon - expéditions ouvertes', () => {
     const events = [
       created('g1', 'Alice'),
       joined('g1', 'Bob'),
+      companion('g1', 1),
       created('g2', 'Carol'),
       started('g2'),
       created('g3', 'Dan'),
       ...['e', 'f', 'g'].map((name) => joined('g3', name)),
+      created('g4', 'Eve'),
+      ...[1, 2, 3].map((number) => companion('g4', number)),
     ]
-    expect(openGames(events, T0).map((game) => [game.gameId, game.heroCount])).toEqual([['g1', 2]])
+    expect(openGames(events, T0).map((game) => [game.gameId, game.heroCount])).toEqual([['g1', 3]])
   })
 
   it("écarte les expéditions ouvertes depuis plus d'une heure", () => {
