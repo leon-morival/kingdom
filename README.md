@@ -68,13 +68,17 @@ Un module n'est accessible depuis l'extérieur que par ses entrées publiques : 
 | --- | --- | --- |
 | `system` | Route de santé | `/api/system` |
 | `realm` | Village : fondation, production de ressources, amélioration des bâtiments | `/api/realm` |
+| `dungeon` | Donjon : expéditions de un à quatre héros, exploration et combats en manches simultanées | `/api/dungeon` |
 
 ## Temps réel
 
 Les changements sont diffusés aux navigateurs par des Server-Sent Events, à l'adresse
 `/api/stream/<canal>`. Chaque canal correspond à un flux du journal d'événements ; il n'est
 accessible qu'aux joueurs connectés autorisés par la règle du module concerné. Le canal
-`village-<joueur>` n'est ainsi accessible qu'au propriétaire du village.
+`village-<joueur>` n'est ainsi accessible qu'au propriétaire du village, et le canal
+`dungeon-<expédition>` aux seuls membres de l'expédition. Le canal d'une expédition est
+discret : il ne transmet que le type et la version des événements, et chaque navigateur
+relit sa propre vue, filtrée par le serveur.
 
 Un flux se ferme de lui-même au bout de 240 secondes, et le navigateur s'y reconnecte
 sans perte d'événement. En développement, la variable `STREAM_MAX_SECONDS` permet de
@@ -110,6 +114,7 @@ en production sur Vercel. Les limites hors Vercel sont décrites dans la revue d
 - [Décisions d'architecture](docs/adr/README.md)
 - [Registre de la dette technique](docs/qualite/dette-technique.md)
 - [Revue de sécurité de l'authentification](docs/qualite/revue-securite-authentification.md)
+- [Revue de sécurité du Donjon](docs/qualite/revue-securite-donjon.md)
 
 ## Conventions
 
@@ -120,5 +125,9 @@ en production sur Vercel. Les limites hors Vercel sont décrites dans la revue d
 
 Chaque flux temps réel relit le journal d'événements deux fois par seconde : la charge de
 la base croît avec le nombre de joueurs connectés. Ce compromis, acceptable pour le nombre
-de joueurs du projet, est décrit dans l'ADR 0003. Les autres limites connues sont recensées
-dans le registre de la dette technique.
+de joueurs du projet, est décrit dans l'ADR 0003.
+
+Une manche du Donjon dont l'échéance est passée n'est enregistrée qu'à la prochaine
+commande acceptée ; toute lecture l'affiche néanmoins comme résolue (ADR 0004).
+Les autres limites connues, dont la liste des expéditions ouvertes et l'absence d'échéance
+pendant l'exploration, sont recensées dans le registre de la dette technique.
