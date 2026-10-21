@@ -18,7 +18,9 @@ export const user = identity.table('user', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
-/** Sessions ouvertes ; supprimées à la déconnexion ou à l'expiration. */
+/** Sessions ouvertes ; supprimées à la déconnexion ou lors du nettoyage par Better Auth. */
+// DETTE TECHNIQUE DT-009 (docs/qualite/dette-technique.md) : aucune purge périodique
+// des sessions expirées qui ne sont plus présentées au serveur.
 export const session = identity.table('session', {
   id: text('id').primaryKey(),
   expiresAt: timestamp('expires_at').notNull(),

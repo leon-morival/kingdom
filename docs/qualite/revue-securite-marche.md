@@ -2,7 +2,7 @@
 
 - Date : 2026-10-21
 - Périmètre : API du module Marché, gestionnaires de messages du Village et du Marché,
-  boîte d'envoi et sa route de distribution, canal temps réel du Marché.
+  boîte d'envoi et la route `/api/cron/daily`, canal temps réel du Marché.
 - Références : OWASP Top 10 (A01 Broken Access Control, A04 Insecure Design,
   A08 Software and Data Integrity Failures).
 
@@ -15,7 +15,7 @@
 | M5 | Un message remis plusieurs fois n'a d'effet qu'une fois | Tests « n'a qu'un effet, et ne répond qu'une fois… », « ignore un mouvement déjà traité… » et « ignore une réponse en double… » | Le Village conserve l'issue du mouvement, y compris un refus ; le doublon ne produit ni événement ni réponse. Le Marché ignore les réponses qui ne correspondent plus à l'étape attendue. | Conforme |
 | M6 | Les quantités échangées sont des entiers strictement positifs, à l'entrée de l'API comme à la réception d'un message | Schémas `ResourceAmounts` et `TransferRequest` ; publications HTTP invalides ; test des messages mal formés | Les quantités -50, 0 et 1,5, une ressource inconnue et un ensemble vide sont refusés avec HTTP 400 `INVALID_INPUT`. Le stock ne varie que par la production normale. Les gestionnaires du Village valident le même schéma avant toute décision. | Conforme |
 | M7 | Aucun joueur ne peut provoquer un mouvement de ressources dans un village autrement que par une offre | Lecture des routes des modules et des adaptateurs de messages | Aucune route publique ne donne accès à `transfer`, à l'enregistrement d'un message ni aux commandes internes de la saga. Les commandes de prélèvement et de versement arrivent par les gestionnaires enregistrés dans la racine de composition. | Conforme |
-| M8 | La route de distribution planifiée n'est accessible qu'avec le secret, absent du dépôt | Tests de la route, appel HTTP sans secret, `git grep -n CRON_SECRET` | Une absence de secret configuré, un en-tête absent ou un secret incorrect donnent HTTP 401. Le secret attendu permet la distribution en test. Le dépôt ne contient que des références, un emplacement vide dans `.env.example` et une constante réservée aux tests ; aucune valeur de production. | Conforme |
+| M8 | La route de distribution planifiée n'est accessible qu'avec le secret, absent du dépôt | Test « refuse une requête sans le secret attendu, et reste fermée sans secret configuré (401) » ; appel HTTP sans secret sur `/api/cron/daily` ; `git grep -n CRON_SECRET` | Une absence de secret configuré, un en-tête absent ou un secret incorrect donnent HTTP 401. Le secret attendu permet la distribution en test. Le dépôt ne contient que des références, un emplacement vide dans `.env.example` et une constante réservée aux tests ; aucune valeur de production. | Conforme |
 | M9 | Le canal du Marché ne transmet aucune donnée d'événement | Abonnement SSE réel et appel de `/api/stream/market/events?after=0` avec une session | Chaque événement reçu contient `data: {}`. Le canal annonce la position, le flux, la version et le type ; les détails de l'offre sont relus par l'API. Les visiteurs anonymes n'accèdent pas au canal. | Conforme |
 | M10 | Les ressources manquantes lors d'un paiement refusé ne sont connues que de l'acheteur concerné | Offre de 10 bois contre 500 pierre ; consultation après refus avec les deux sessions | L'acheteur reçoit les pierres manquantes et l'offre reste ouverte. La consultation de la même offre par le vendeur renvoie `missing: null`. Le canal global ne contient pas les données du refus. | Conforme |
 

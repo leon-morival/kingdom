@@ -5,6 +5,8 @@ import { useState } from 'react'
 const CONFIRMATION = 'SUPPRIMER'
 
 /** Export et effacement des données du joueur dans l'ensemble du jeu. */
+// DETTE TECHNIQUE DT-008 (docs/qualite/dette-technique.md) : ajouter un parcours
+// de rectification coordonnée du nom et de ses copies dans les modules.
 export function AccountScreen() {
   const [confirmation, setConfirmation] = useState('')
   const [busy, setBusy] = useState(false)

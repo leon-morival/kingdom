@@ -52,6 +52,8 @@ export function createTavernService(
    * Tâche quotidienne : applique les durées de conservation des messages et de la présence,
    * même si personne ne visite la Taverne. Renvoie le nombre de lignes supprimées.
    */
+  // DETTE TECHNIQUE DT-013 (docs/qualite/dette-technique.md) : la suppression physique
+  // attend ce passage ou une lecture ; une tâche échouée ne déclenche aucune alerte.
   async function purge() {
     const now = clock()
     return {

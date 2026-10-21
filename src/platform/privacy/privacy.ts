@@ -54,6 +54,8 @@ export function createPrivacyService(
   clock = () => Date.now(),
 ) {
   /** Export de toutes les données personnelles d'un joueur, module par module. */
+  // DETTE TECHNIQUE DT-014 (docs/qualite/dette-technique.md) : les contributions exportent
+  // surtout des vues ; la complétude des historiques personnels reste à établir.
   async function exportData(playerId: string) {
     const sections: Record<string, unknown> = {}
     for (const contributor of contributors) {
@@ -109,6 +111,8 @@ export function createPrivacyService(
    * contributeur efface les données de ses tables, l'identité en dernier.
    * Chaque étape est idempotente : un effacement interrompu peut être relancé.
    */
+  // DETTE TECHNIQUE DT-011 (docs/qualite/dette-technique.md) : les identifiants demeurent
+  // corrélables aux traces externes ; les écritures concurrentes ne sont pas verrouillées.
   async function erase(playerId: string) {
     const rewritten = await rewriteJournal(playerId)
     for (const contributor of contributors) await contributor.erase?.(playerId, rewritten)
