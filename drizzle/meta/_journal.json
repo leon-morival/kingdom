@@ -29,6 +29,20 @@
       "when": 1792583102455,
       "tag": "0003_classement",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792583337469,
+      "tag": "0004_version_projections",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792583347754,
+      "tag": "0005_meilleur_butin",
+      "breakpoints": true
     }
   ]
 }
