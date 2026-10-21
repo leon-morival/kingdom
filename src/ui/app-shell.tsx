@@ -11,6 +11,7 @@ export const NAV = [
   { href: '/dungeon', kind: 'dungeon', label: 'Donjon' },
   { href: '/ranking', kind: 'ranking', label: 'Classement' },
   { href: '/market', kind: 'market', label: 'Marché' },
+  { href: '/tavern', kind: 'tavern', label: 'Taverne' },
 ]
 
 /** Cadre de l'espace de jeu : navigation, nom du joueur et déconnexion. */
@@ -27,7 +28,7 @@ export function AppShell({ userName, children }: { userName: string; children: R
   return (
     <>
       <nav className="border-b border-gray-200 bg-white" aria-label="Navigation principale">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-4 text-gray-900 sm:flex-row sm:items-center sm:px-6">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-4 text-gray-900 sm:flex-row sm:flex-wrap sm:items-center sm:px-6">
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {NAV.map((item) => (
               <Link
