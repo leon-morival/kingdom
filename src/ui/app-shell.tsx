@@ -14,7 +14,7 @@ export const NAV = [
   { href: '/tavern', kind: 'tavern', label: 'Taverne' },
 ]
 
-/** Cadre de l'espace de jeu : navigation, nom du joueur et déconnexion. */
+/** Cadre de l'espace de jeu : navigation, nom du joueur, accès à ses données et déconnexion. */
 export function AppShell({ userName, children }: { userName: string; children: ReactNode }) {
   const pathname = usePathname()
 
@@ -45,6 +45,13 @@ export function AppShell({ userName, children }: { userName: string; children: R
             <span className="truncate text-sm text-gray-500" title={userName}>
               {userName}
             </span>
+            <Link
+              href="/account"
+              aria-current={pathname === '/account' ? 'page' : undefined}
+              className="shrink-0 rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 aria-[current=page]:bg-blue-50 aria-[current=page]:text-blue-700"
+            >
+              Mes données
+            </Link>
             <button
               className="shrink-0 cursor-pointer rounded-md border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
               type="button"

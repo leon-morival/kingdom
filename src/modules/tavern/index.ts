@@ -8,8 +8,10 @@ import type { ChannelPolicy } from '@/platform/realtime/channel-policy'
 import { createTavernApi } from './api'
 import { createTavernService } from './application/tavern-service'
 import { MESSAGE_POSTED, TAVERN_CHANNEL } from './contracts'
+import { expiredBefore } from './domain/message'
 import { createDrizzleMessageRepository } from './infrastructure/drizzle-message-repository'
 import { createDrizzlePresenceRepository } from './infrastructure/drizzle-presence-repository'
+import { createTavernPersonalData } from './personal-data'
 
 export interface TavernModuleDeps {
   /** Base de données, dans laquelle la Taverne tient ses tables. */
@@ -22,7 +24,7 @@ export interface TavernModuleDeps {
 const CHANNEL_BATCH = 100
 
 /** Fabrique du module : assemble l'adaptateur, le service, l'API et la règle du canal. */
-export function createTavernModule({ db, clock }: TavernModuleDeps) {
+export function createTavernModule({ db, clock = () => Date.now() }: TavernModuleDeps) {
   const repo = createDrizzleMessageRepository(db)
   const service = createTavernService(repo, createDrizzlePresenceRepository(db), clock)
 
@@ -35,7 +37,7 @@ export function createTavernModule({ db, clock }: TavernModuleDeps) {
     canSubscribe: (channel) => channel === TAVERN_CHANNEL,
     source: {
       async read(after) {
-        const fresh = await repo.after(after, CHANNEL_BATCH)
+        const fresh = await repo.after(after, CHANNEL_BATCH, expiredBefore(clock()))
         return fresh.map((message) => ({
           position: message.id,
           stream: TAVERN_CHANNEL,
@@ -50,7 +52,14 @@ export function createTavernModule({ db, clock }: TavernModuleDeps) {
     },
   }
 
-  return { api: createTavernApi(service), channelPolicy }
+  // La tâche quotidienne est confiée à la racine de composition, qui la fait exécuter
+  // par la tâche planifiée de Vercel.
+  return {
+    api: createTavernApi(service),
+    channelPolicy,
+    dailyTask: service.purge,
+    personalData: createTavernPersonalData(db),
+  }
 }
 
 export type { TavernApi } from './api'
