@@ -67,6 +67,17 @@ module.exports = {
       from: {},
       to: { circular: true },
     },
+    {
+      // Règle 6 (TD11) : les tables de la plateforme ne sont lues et écrites que par la plateforme.
+      // Un module passe par les fonctions du journal, de la boîte d'envoi ou des projections ;
+      // il n'importe jamais leurs tables. Seule la plateforme peut ainsi modifier un événement.
+      name: 'platform-tables-are-private',
+      comment:
+        "Un module n'importe jamais les tables de la plateforme : il passe par ses fonctions.",
+      severity: 'error',
+      from: { path: '^src/modules/' },
+      to: { path: '^src/platform/[^/]+/schema\\.ts$' },
+    },
   ],
   options: {
     // Les paquets installés ne sont pas analysés.

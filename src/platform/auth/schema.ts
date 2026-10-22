@@ -1,4 +1,4 @@
-import { boolean, pgSchema, text, timestamp } from 'drizzle-orm/pg-core'
+import { bigint, boolean, integer, pgSchema, text, timestamp } from 'drizzle-orm/pg-core'
 
 /**
  * Tables attendues par Better Auth, rangées dans le schéma PostgreSQL « identity ».
@@ -64,4 +64,12 @@ export const verification = identity.table('verification', {
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+/** Compteurs partagés entre instances, par route et adresse IP. */
+export const rateLimit = identity.table('rate_limit', {
+  id: text('id').primaryKey(),
+  key: text('key').notNull().unique(),
+  count: integer('count').notNull(),
+  lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
 })

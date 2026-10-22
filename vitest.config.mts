@@ -17,6 +17,15 @@ export default defineConfig({
     hookTimeout: 15_000,
     // Les tests s'exécutent toujours dans un environnement de test, y compris lorsqu'ils
     // sont lancés par la construction Vercel, où NODE_ENV vaut « production ».
+    // Couverture du code par les tests (TD11), mesurée par la commande pnpm test:coverage.
+    coverage: {
+      provider: 'v8',
+      // Seul le code du projet est mesuré, hors tests et hors pages Next.js.
+      include: ['src/**/*.ts', 'src/**/*.tsx'],
+      exclude: ['src/**/*.test.ts'],
+      reporter: ['text-summary', 'html'],
+      reportsDirectory: 'coverage',
+    },
     env: { NODE_ENV: 'test' },
   },
 })
