@@ -12,7 +12,7 @@ dans le même commit que la modification qu'ils décrivent.
 ```mermaid
 flowchart TB
   joueur["Joueur<br/>[Personne]<br/>Joue depuis un navigateur,<br/>sur ordinateur ou sur téléphone"]
-  royaumes["Royaumes<br/>[Système logiciel]<br/>Jeu web multijoueur : village, donjon,<br/>classement et marché"]
+  royaumes["Royaumes<br/>[Système logiciel]<br/>Jeu web multijoueur : village, donjon,<br/>classement, marché et taverne"]
   joueur -->|"Gère son village, joue avec les autres joueurs,<br/>reçoit les changements en direct (HTTPS)"| royaumes
 ```
 
@@ -26,9 +26,9 @@ des joueurs sont gérés par le système lui-même.
 flowchart TB
   joueur["Joueur<br/>[Personne]"]
   subgraph royaumes["Système Royaumes"]
-    web["Interface web<br/>[Conteneur : React, dans le navigateur]<br/>Pages du jeu et page de connexion"]
+    web["Interface web<br/>[Conteneur : React, dans le navigateur]<br/>Pages du jeu, connexion et Mes données"]
     serveur["Application serveur<br/>[Conteneur : Next.js et Hono, fonctions Vercel, Francfort]<br/>Rendu des pages, API JSON,<br/>authentification, flux temps réel"]
-    base[("Base de données<br/>[Conteneur : PostgreSQL, Neon, Francfort]<br/>Schéma platform : journal, points de reprise,<br/>boîte d'envoi<br/>Schéma identity : comptes et sessions<br/>Schémas ranking, dungeon et market :<br/>modèles de lecture")]
+    base[("Base de données<br/>[Conteneur : PostgreSQL, Neon, région configurée au déploiement]<br/>Schéma platform : journal, points de reprise,<br/>boîte d'envoi, registre des effacements<br/>Schéma identity : comptes et sessions<br/>Schémas ranking, dungeon et market :<br/>modèles de lecture<br/>Schéma tavern : messages et présence")]
   end
   joueur -->|"Utilise"| web
   web -->|"Pages, appels de l'API avec le cookie de session<br/>(HTTPS, JSON)"| serveur
@@ -40,9 +40,9 @@ flowchart TB
 | --- | --- | --- |
 | Interface web | React, composants des modules (`ui.tsx`) | Affichage des vues, envoi des actions du joueur, abonnement aux canaux temps réel |
 | Application serveur | Next.js, Hono, Better Auth, Drizzle | Contrôle d'accès, règles du jeu, enregistrement des événements, diffusion des flux |
-| Base de données | PostgreSQL (Neon en production, PGlite en local et en test) | Conservation du journal d'événements, des comptes, des sessions et de la boîte d'envoi ; modèles de lecture des modules |
+| Base de données | PostgreSQL (Neon en production, PGlite en local et en test) | Conservation du journal d'événements, des comptes, des sessions, de la boîte d'envoi et des traces d'effacement ; projections et tables de la Taverne |
 
-Le journal d'événements est la source de vérité du jeu. Les tables des schémas `ranking`,
+Le journal d'événements est la source de vérité du Village, du Donjon et du Marché. Les tables des schémas `ranking`,
 `dungeon` et `market` sont des modèles de lecture, dérivés du journal par des projections : elles peuvent
 être vidées puis reconstruites à tout moment, sans perte d'information.
 
@@ -52,6 +52,11 @@ nécessaires à l'aboutissement des sagas.
 
 L'interface web ne communique jamais directement avec la base : toute lecture et toute
 écriture passent par l'application serveur, qui applique le contrôle d'accès.
+
+La Taverne utilise ses tables comme source de vérité : elles contiennent les messages et
+la dernière présence, et ne sont pas reconstruites par rejeu. Une source fournie par le
+module alimente son canal SSE à partir de l'identifiant croissant des messages. Les
+lectures et la tâche quotidienne appliquent la conservation ([ADR 0008](adr/0008-donnees-personnelles.md)).
 
 ## Niveau 3 - Composants de l'application serveur
 
@@ -69,26 +74,33 @@ flowchart TB
     dungeon["dungeon<br/>Donjon : domaine et IA, service,<br/>dépôt fondé sur le journal, API, canal discret,<br/>projection des expéditions ouvertes"]
     ranking["ranking<br/>Classement : projection,<br/>lecture, API, canal global"]
     market["market<br/>Marché : orchestrateur de la saga,<br/>projection des offres, API, canal global"]
+    tavern["tavern<br/>Messages et présence,<br/>tables ordinaires, API, source de canal"]
   end
   subgraph platform["src/platform"]
     auth["auth<br/>Port AuthPort,<br/>adaptateur Better Auth"]
     http["http<br/>Intergiciel requireUser,<br/>validation des requêtes"]
-    realtime["realtime<br/>Flux SSE, règles d'accès<br/>aux canaux, canaux discrets et globaux"]
+    realtime["realtime<br/>Flux SSE, règles d'accès<br/>aux canaux, flux, canaux globaux<br/>et sources fournies par les modules"]
     store["event-store<br/>Journal d'événements,<br/>concurrence optimiste"]
     projection["projection<br/>Rattrapage et reconstruction<br/>des projections"]
-    outbox["outbox<br/>Boîte d'envoi, distributeur,<br/>route planifiée"]
+    outbox["outbox<br/>Boîte d'envoi et distributeur"]
+    privacy["Droits des joueurs<br/>privacy"]
+    cronapi["Tâches quotidiennes<br/>cron"]
     db["db<br/>Client Drizzle<br/>(Neon ou PGlite)"]
   end
   base[("Base de données")]
   route --> server
   pages --> server
   server --> createapi
-  createapi --> system & realm & dungeon & ranking & market & auth & http & realtime & projection & outbox
+  createapi --> system & realm & dungeon & ranking & market & tavern & auth & http & realtime & projection & outbox & privacy & cronapi
   realm --> store & realtime & http & outbox
   market --> store & projection & realtime & http & outbox
   market -->|"Contrats publiés"| realm
   dungeon --> store & projection & realtime & http
   ranking --> projection & realtime & http
+  tavern --> db & realtime & http & privacy
+  realm & dungeon & market & ranking --> privacy
+  privacy --> db
+  cronapi --> http
   realtime --> store & http
   projection --> db
   store --> outbox
@@ -116,6 +128,12 @@ ne modifie que les données d'un seul module et la boîte d'envoi de la platefor
 demande et ne connaît pas le déroulement de l'échange. Les messages, au-delà des imports de
 contrats, forment une relation que dependency-cruiser ne représente pas.
 
+Chaque module expose un contributeur aux droits des joueurs. La plateforme coordonne
+l'export et la réécriture des seuls champs personnels du journal, puis les corrections de
+tables et la suppression finale de l'identité. Elle n'importe aucun module : les contributeurs
+lui sont injectés par `create-api.ts`. La transaction de réécriture inscrit aussi une trace
+sans identifiant de joueur dans `platform.erasures`. Les identifiants de jeu restent pseudonymes.
+
 Les règles suivantes sont vérifiées automatiquement par
 dependency-cruiser (`.dependency-cruiser.cjs`) à chaque exécution de `pnpm verify` :
 
@@ -138,10 +156,10 @@ tout diagramme maintenu à la main ne tarderait pas à contredire.
 flowchart LR
   poste["Poste de développement"] -->|"git push"| github["GitHub<br/>Dépôt kingdom"]
   github -->|"Déclenche"| build["Construction Vercel<br/>verify, db:migrate, next build"]
-  build -->|"Migrations<br/>(connexion directe)"| neon[("Neon<br/>Francfort")]
+  build -->|"Migrations<br/>(connexion directe)"| neon[("Neon<br/>Région du projet")]
   build -->|"Publie"| fonctions["Fonctions Vercel<br/>Francfort (fra1)"]
   fonctions -->|"SQL<br/>(connexion mutualisée)"| neon
-  cron["Tâche planifiée Vercel<br/>chaque jour à 4 h UTC"] -->|"GET /api/outbox/dispatch<br/>(secret CRON_SECRET)"| fonctions
+  cron["Tâche planifiée Vercel<br/>chaque jour à 4 h UTC"] -->|"GET /api/cron/daily<br/>(secret CRON_SECRET)"| fonctions
 ```
 
 Une fois le dépôt connecté au projet Vercel, chaque envoi sur la branche `main`
@@ -151,6 +169,8 @@ et les migrations ne sont appliquées qu'après ces contrôles.
 Le schéma de déploiement correspond à `vercel.json` et aux scripts du projet.
 La région Neon et la connexion au dépôt GitHub se configurent dans Vercel.
 
-La tâche planifiée distribue les messages restés en attente. Elle n'est exécutée qu'en
+La tâche planifiée distribue les messages restés en attente puis purge les messages et la
+présence périmés de la Taverne. Elle isole les erreurs et rapporte le résultat de chaque tâche.
+Elle n'est exécutée qu'en
 production et nécessite la variable `CRON_SECRET` dans les réglages du projet Vercel.
 Les commandes et consultations du Marché déclenchent également la distribution.

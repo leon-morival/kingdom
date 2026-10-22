@@ -42,6 +42,14 @@ Le parcours HTTP valide les sessions, les réponses et les flux, sans valider vi
 l'interface dans deux fenêtres. Le bouton `SUPPRIMER`, son état désactivé et son traitement
 réseau ont été relus dans le code ; la construction de production réussit.
 
+Le 22 octobre 2026, le même parcours HTTP a également réussi sur
+`https://kingdom-swart.vercel.app`, après confirmation du déploiement Vercel du commit
+`7a7685e`. Deux comptes créés pour ce contrôle ont vérifié les messages SSE et leur repli,
+la limitation, l'expiration de présence, l'export avec IP de session, l'effacement et le
+refus de reconnexion. Les comptes de test ont été supprimés. `/api/cron/daily` répond 401
+sans secret et l'ancienne route `/api/outbox/dispatch` répond 404 ; le déclenchement manuel
+authentifié du cron reste une vérification distincte dans la console Vercel.
+
 La [documentation Vercel](https://vercel.com/docs/logs/runtime) décrit `requestPath`, le
 filtrage par IP/navigateur et les fenêtres de conservation. Le rapprochement de R10 est
 une déduction de ces champs et des URL de l'application, pas l'observation d'une entrée

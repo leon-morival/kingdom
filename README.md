@@ -59,6 +59,7 @@ drizzle/              Migrations de la base de données
 docs/
   adr/                Décisions d'architecture
   qualite/            Dette technique et revues
+  rgpd/               Registre des traitements et revue de conformité
   architecture.md     Description de l'architecture (modèle C4)
 ```
 
@@ -72,6 +73,7 @@ Un module n'est accessible depuis l'extérieur que par ses entrées publiques : 
 | `dungeon` | Donjon : expéditions de un à quatre héros, compagnons pilotés par l'ordinateur, deux niveaux de difficulté, combats en manches simultanées | `/api/dungeon` |
 | `ranking` | Classement des joueurs, construit à partir des événements du Village et du Donjon | `/api/ranking` |
 | `market` | Marché : échanges de ressources entre joueurs, par une saga orchestrée | `/api/market` |
+| `tavern` | Taverne : salon commun, messages et présence temporaire | `/api/tavern` |
 
 ## Temps réel
 
@@ -85,6 +87,11 @@ et `market` sont globaux : ils suivent, dans tout le journal, les événements q
 le classement ou les offres. Sans point de reprise, ils commencent à la dernière position
 du journal ; une reconnexion reprend après la position précédemment reçue.
 
+Le canal `tavern` lit directement la table des messages, par identifiant croissant. Il
+transmet leur contenu ; l'historique charge les cinquante derniers messages encore conservés.
+La présence est signalée toutes les trente secondes, avec une expiration après deux minutes
+sans signal. Les messages expirent après trente jours.
+
 Les canaux du Donjon, du Classement et du Marché sont discrets : ils ne transmettent que la position,
 le flux, le type et la version des événements, et chaque navigateur relit sa propre vue, filtrée
 par le serveur.
@@ -92,6 +99,25 @@ par le serveur.
 Un flux se ferme de lui-même au bout de 240 secondes, et le navigateur s'y reconnecte
 sans perte d'événement. En développement, la variable `STREAM_MAX_SECONDS` permet de
 raccourcir cette durée pour observer la reconnexion.
+
+## Données personnelles
+
+La page « Mes données » permet de télécharger un export JSON des données du joueur, puis de
+supprimer son compte après saisie de `SUPPRIMER`. Chaque module fournit un contributeur :
+export, réécriture de ses champs personnels et effacement de ses tables. Les graines des
+expéditions, les secrets et les données des autres joueurs ne sont pas exportés.
+
+L'effacement supprime les messages et la présence, remplace les noms du journal et des
+projections par des mentions neutres, puis supprime l'identité et ses sessions en dernier.
+La réécriture ciblée est la seule exception à l'ajout seul du journal ; une trace sans
+identifiant de joueur en conserve la date et le nombre d'événements concernés
+([ADR 0008](docs/adr/0008-donnees-personnelles.md)). Les identifiants demeurent pseudonymes :
+les journaux de l'hébergeur et les sauvegardes empêchent de promettre une anonymisation.
+
+L'historique de la Taverne supprime les messages expirés ; son canal les exclut aussi.
+La route quotidienne purge les messages et la présence même sans visite, au prochain
+passage réussi. Le [registre des traitements](docs/rgpd/registre-traitements.md) et la
+[revue de conformité](docs/rgpd/revue-conformite.md) décrivent les durées et limites réelles.
 
 ## Échanges entre modules
 
@@ -104,7 +130,7 @@ car la reprise après une interruption peut remettre un même message plusieurs 
 Le Marché réserve les ressources du vendeur, puis demande le paiement de l'acheteur. Après
 ce paiement, il déclenche les deux versements. Le retrait ou l'expiration d'une offre ouverte
 restitue les ressources en séquestre. La distribution a lieu après les commandes, à la consultation
-de la liste du Marché et chaque jour par une tâche planifiée Vercel.
+de la liste du Marché et chaque jour par `/api/cron/daily`, une tâche planifiée Vercel.
 
 ## Base de données
 
@@ -118,7 +144,10 @@ Le classement, la liste des expéditions ouvertes et celle des offres sont des m
 par des projections du journal (ADR 0006). Le rattrapage a lieu à la consultation. Une
 version de projection supérieure à celle des tables déclenche leur reconstruction ;
 un code plus ancien s'abstient de les modifier. Tout changement du contenu calculé
-doit donc augmenter cette version. Le journal reste la seule source de vérité.
+doit donc augmenter cette version. Le journal reste la source de vérité de ces modèles.
+La Taverne conserve directement
+ses messages et sa présence dans `tavern` : ces tables ne sont pas des projections et ne
+peuvent pas être reconstruites à partir du journal.
 
 La configuration de production utilise Neon. Les migrations y sont appliquées lors de
 chaque déploiement, après les contrôles et avant la construction de l'application.
@@ -137,8 +166,11 @@ Vercel ; elle n'est jamais versionnée, et l'application refuse de démarrer san
 en production sur Vercel. Les limites hors Vercel sont décrites dans la revue de sécurité.
 
 La variable `CRON_SECRET` doit aussi être définie dans l'environnement Production du projet
-Vercel, avant le déploiement. Elle protège `/api/outbox/dispatch`, appelée chaque jour à 4 h UTC
-selon `vercel.json`. Sans ce secret, la route reste fermée ; une requête sans le bon en-tête
+Vercel, avant le déploiement. Elle protège `/api/cron/daily`, appelée chaque jour à 4 h UTC
+selon `vercel.json`, pour distribuer la boîte d'envoi puis purger la Taverne. Chaque tâche
+renvoie son résultat ou son erreur ; l'échec de l'une n'empêche pas la suivante. Un HTTP 200
+demande donc aussi de vérifier les champs `ok` du compte rendu. Sans ce secret, la route
+reste fermée ; une requête sans le bon en-tête
 `Authorization` reçoit HTTP 401. Le secret n'est jamais versionné.
 
 ## Documentation
@@ -149,6 +181,8 @@ selon `vercel.json`. Sans ce secret, la route reste fermée ; une requête sans 
 - [Revue de sécurité de l'authentification](docs/qualite/revue-securite-authentification.md)
 - [Revue de sécurité du Donjon](docs/qualite/revue-securite-donjon.md)
 - [Revue de sécurité du Marché](docs/qualite/revue-securite-marche.md)
+- [Registre des traitements de données personnelles](docs/rgpd/registre-traitements.md)
+- [Revue de conformité au RGPD](docs/rgpd/revue-conformite.md)
 
 ## Conventions
 
@@ -157,7 +191,7 @@ selon `vercel.json`. Sans ce secret, la route reste fermée ; une requête sans 
 
 ## Limites actuelles
 
-Chaque flux temps réel relit le journal d'événements deux fois par seconde : la charge de
+Chaque flux temps réel relit sa source deux fois par seconde : la charge de
 la base croît avec le nombre de joueurs connectés. Ce compromis, acceptable pour le nombre
 de joueurs du projet, est décrit dans l'ADR 0003.
 
@@ -177,3 +211,13 @@ ne sont toutefois restituées qu'à la prochaine distribution, déclenchée par 
 la tâche quotidienne. Des états intermédiaires restent visibles pendant un échange ; un message
 abandonné après dix tentatives demande une intervention encore dépourvue d'outil dédié (DT-007).
 La boîte d'envoi conserve aussi les messages traités et croît tant qu'aucune purge n'est définie.
+
+La limitation des messages compte les insertions récentes en base ; des publications
+simultanées peuvent légèrement dépasser cinq messages en trente secondes. La présence
+n'est pas une preuve de connexion et plusieurs onglets partagent une même ligne.
+
+L'effacement et l'export parcourent le journal et doivent évoluer si son volume dépasse
+le temps disponible pour une requête. La rectification du nom n'a pas de parcours dédié.
+La purge des sessions expirées, la minimisation des erreurs journalisées, les liens de
+réidentification et les garanties contractuelles des hébergeurs restent à traiter au TD11.
+La revue RGPD ne conclut pas à une conformité globale du service.
