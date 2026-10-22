@@ -42,3 +42,5 @@ export function createRealmModule({ store, clock }: RealmModuleDeps) {
 }
 
 export type { RealmApi } from './api'
+
+export { createRemoteRealmModule } from './remote'

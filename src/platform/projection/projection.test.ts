@@ -194,3 +194,12 @@ describe('Budget de performance', () => {
     transaction.mockRestore()
   })
 })
+
+describe('Point de reprise d’un consommateur distant', () => {
+  it('ne recule pas lorsque deux relais enregistrent leurs positions dans le désordre', async () => {
+    const runner = createProjectionRunner(db)
+    await runner.savePosition('relay', 10)
+    await Promise.all([runner.savePosition('relay', 12), runner.savePosition('relay', 7)])
+    expect(await runner.positionOf('relay')).toBe(12)
+  })
+})
