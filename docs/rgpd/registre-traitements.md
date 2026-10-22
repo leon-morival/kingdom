@@ -5,7 +5,7 @@ Ce registre, prévu par l'article 30 du RGPD, recense les traitements de Royaume
 mesures de protection dans le même changement que le code.
 
 - Responsable du traitement : Leon Morival — leon.morival@gmail.com.
-- Dernière mise à jour : 2026-10-21.
+- Dernière mise à jour : 2026-10-22.
 - Personnes concernées : joueurs inscrits et visiteurs pour les journaux techniques.
 - Périmètre : application, base active, journaux et prestations d'hébergement. Les bases
   de développement et de test utilisent des données synthétiques pour la présente revue.
@@ -38,6 +38,7 @@ adaptées ; un document technique ne remplace pas cette information (DT-012).
 | T5 | Présence | Affichage des joueurs présents | Identifiant, nom, dernier signal horodaté par le serveur | Joueurs | Exécution du contrat | Une ligne actualisée, aucun historique. Absence après deux minutes sans signal ; suppression lors d'un départ explicite, d'une lecture ou d'une purge quotidienne, ou avec le compte | `tavern.presence` |
 | T6 | Registre des effacements | Traçabilité des réécritures et responsabilité | Identifiant de trace, date, nombre d'événements réécrits ; aucun identifiant ni nom du joueur | Aucune identité enregistrée directement ; un rapprochement temporel externe reste possible | Responsabilité au titre de l'article 5 ; durée à réexaminer avec les traces techniques | Pas de purge actuellement. Une ligne par transaction de réécriture validée, y compris lors d'une reprise ; ne certifie pas l'achèvement des étapes suivantes | `platform.erasures` |
 | T7 | Journaux techniques | Diagnostic et sécurité | IP, navigateur, chemin et paramètres de requête, dates, erreurs ; contenu personnel possible dans une erreur SQL | Joueurs et visiteurs | Intérêt légitime de maintenance et sécurité, avec minimisation | Runtime Logs : fenêtre publiée de **1 heure pour Hobby** ; Pro 1 jour, Enterprise 3 jours, extensions possibles. Les logs de construction ont une conservation distincte. La suppression de compte ne purge pas ces traces ; durée des copies et sauvegardes non attestée (DT-010, DT-011, DT-012) | Vercel ; sortie du serveur local en développement |
+| T8 | Limitation des connexions et inscriptions | Prévenir les essais massifs avec des compteurs communs aux instances | Clé composée de l’IP et du chemin, compteur et date de dernière tentative ; pas d’identifiant de compte | Joueurs et visiteurs | Intérêt légitime de sécurité à documenter | Fenêtres configurées de 60 secondes ; Better Auth élague les anciennes lignes lors de certaines requêtes réinitialisant une fenêtre, sans purge quotidienne. Une ligne peut donc subsister pendant l’inactivité ; pas d’effacement par compte (DT-024) | `identity.rate_limit` |
 
 La [documentation Runtime Logs](https://vercel.com/docs/logs/runtime) décrit les durées
 par offre, `requestPath` et le filtrage par IP/navigateur. La fenêtre consultable n'est pas
@@ -56,6 +57,9 @@ empreinte du mot de passe. `requireUser` protège les routes ; les contrôles m�
 l'accès aux villages et aux expéditions. L'export exclut mots de passe, jetons, graines et
 données des autres joueurs et utilise `Cache-Control: private, no-store`. Les secrets sont
 dans les variables d'environnement ; `/api/cron/daily` reste fermée sans `CRON_SECRET`.
+Les compteurs de connexion sont partagés en base ; le test de limitation vérifie le refus
+de la 61e tentative et la présence du compteur à 60. La clé IP/route n’est pas reliée à
+un compte : elle n’est pas incluse dans son export individuel.
 Les garanties et limites sont examinées dans les revues de sécurité et de conformité.
 
 ## Droits des personnes

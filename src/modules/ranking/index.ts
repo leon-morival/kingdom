@@ -27,6 +27,8 @@ export function createRankingModule({ db, projections }: RankingModuleDeps) {
   // annonce les événements appliqués par la projection, tous flux confondus. Il est discret :
   // les événements du Donjon contiennent la graine de l'expédition, qui ne doit jamais
   // être transmise, et l'interface n'a besoin que de leur position.
+  // DETTE TECHNIQUE DT-023 (docs/qualite/dette-technique.md) : les métadonnées historiques
+  // des expéditions restent visibles sur ce canal global (revue D14).
   const channelPolicy: ChannelPolicy = {
     prefix: RANKING_CHANNEL,
     canSubscribe: (channel) => channel === RANKING_CHANNEL,

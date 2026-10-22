@@ -1,0 +1,152 @@
+# Bilan technique de Royaumes
+
+- Date : 2026-10-22
+- Version examinée : travail du TD11, destiné à l’étiquette `td11-fin`
+- Auteur : Leon Morival
+
+Ce bilan rassemble les décisions, mesures et limites du système livré. Les résultats
+locaux décrivent les scénarios exécutés ; ils ne certifient ni une capacité de production
+ni une conformité générale aux exigences de sécurité et de protection des données.
+
+## 1. Le système livré
+
+| Élément | Valeur |
+| --- | --- |
+| Modules | 5 modules de jeu et `system` |
+| Briques de la plateforme | 9 : auth, cron, db, event-store, http, outbox, privacy, projection, realtime |
+| Lignes de code, hors tests | 8232, dans `src/`, commentaires compris ; pages et scripts exclus |
+| Fichiers de test, nombre de tests | 33 fichiers, 238 tests ; 31 fichiers et 224 tests à `td10-fin` |
+| Historique | 73 commits au dernier ADR ; progression du TD11 consultable par `git log td10-fin..HEAD` |
+| Hébergement | Vercel, fonctions en `fra1` ; PostgreSQL Neon, région effective à attester dans la console |
+| Service extrait | Un service Village local de 82 lignes, non déployé |
+
+| Module | Stockage | Lignes, hors tests |
+| --- | --- | --- |
+| `realm` | Journal d’événements ; variante distante et relais | 1148 |
+| `dungeon` | Journal, projection des expéditions ouvertes | 2175 |
+| `market` | Journal, projection des offres, saga et boîte d’envoi | 1340 |
+| `ranking` | Projection du journal | 474 |
+| `tavern` | Tables ordinaires de messages et de présence | 727 |
+| `system` | Aucun | 73 |
+
+Comptage reproductible : fichiers `.ts` et `.tsx` de `src/`, hors `*.test.ts`, nombre de
+lignes physiques. Le Village augmente surtout par son adaptateur distant, sans modifier
+son domaine. Le Donjon demeure le module le plus volumineux ; son domaine est fortement testé.
+
+## 2. Les décisions d’architecture
+
+Les textes complets figurent dans le [registre des ADR](adr/README.md).
+
+| ADR | Décision | Mise à l’épreuve | Bilan |
+| --- | --- | --- | --- |
+| 0001 | Monolithe modulaire | Extraction locale du Village, ajout de la règle des tables privées | Frontières tenues ; les dépendances au journal dépassent celles visibles par les imports |
+| 0002 | Event Sourcing du Village | Projections, export, réécriture ciblée et relais distant | Reconstruction et concurrence conservées ; coût de lecture lié au volume du flux |
+| 0003 | SSE alimentés par le journal | Canaux globaux, source Taverne et Village distant | Même transport réutilisé ; coût du polling et client React sans test navigateur |
+| 0004 | Manches simultanées, échéances paresseuses | Actions tardives et absence d’un joueur | Équité et reproductibilité testées ; les notifications et écritures attendent une commande |
+| 0005 | IA déterministe | Tests de stratégies, simulation et jeu avec compagnons | Rejeu stable ; quatre héros restent favorisés et les résultats ne prouvent pas une sécurité cryptographique |
+| 0006 | Projections rattrapées à la lecture | Charge avant/après, reconstruction et tests de concurrence | Lecture à jour sans transaction ; premier rattrapage et reconstruction restent proportionnels au journal |
+| 0007 | Saga et boîte d’envoi | Échange à deux processus, panne du Village, reprise et lettres mortes | Conservation des ressources vérifiée ; cohérence différée et intervention après abandon |
+| 0008 | Taverne en tables, réécriture ciblée | Suppression reprise après interruption et deux copies du Village | Noms neutralisés dans les scénarios testés ; identifiants, journaux et sauvegardes restent pseudonymes |
+| 0009 | Extraction préparée, non déployée | Huit tests de contrat et démonstration HTTP avec retour arrière | Extraction démontrée ; migration initiale, exploitation et dettes du service à traiter avant déploiement |
+
+## 3. La qualité
+
+| Caractéristique | Indicateur | Valeur mesurée | Appréciation |
+| --- | --- | --- | --- |
+| Adéquation fonctionnelle | Tests et couverture des domaines | 238 tests réussis ; Village, Marché et Taverne : 100 % des lignes ; Donjon : 252/253, soit 99,60 % | Règles et scénarios contrôlés ; couvrir une ligne ne prouve pas toutes ses branches |
+| Efficacité des performances | Charge de vingt connexions | Après : p99 de 63 à 103 ms, zéro erreur sur cinq lectures | Budget local de 500 ms respecté ; aucun chiffre de capacité Vercel déduit |
+| Fiabilité | Concurrence, reprise, idempotence | Tests de saga, huit contrats distants, un test de position monotone, examen/relance des abandons | Panne partielle récupérable ; DT-017 limite la distribution des réponses du service local |
+| Sécurité | Revues existantes | 16 + 14 + 10 exigences de sécurité ; 10 exigences RGPD | Les non-conformités des revues restent ouvertes, voir section 5 |
+| Maintenabilité | Dépendances et tests d’aptitude | 7 règles de dépendance, 0 violation ; 2 tests d’aptitude ; couverture globale 73,99 % des lignes | Progression depuis 72,42 % avant TD11 ; l’interface reste sans tests automatiques de navigateur |
+| Flexibilité | Deux bases et deux processus | Huit contrats Hono avec bases indépendantes ; TCP testé séparément ; retour intégré réussi | PGlite en local, pilote PostgreSQL en production ; pas de déploiement du service |
+
+`pnpm verify` a exécuté les 238 tests en environ 20 secondes ; `pnpm test:coverage` en
+27,35 secondes, couverture comprise. Le rapport final indique 1 178/1 592 lignes,
+72,53 % des instructions, 62,67 % des branches et 69,31 % des fonctions. Le rapport HTML
+se régénère dans `coverage/` ; il n’est pas versionné. Les composants `ui.tsx`, les écrans
+et le client temps réel ne disposent pas d’un parcours navigateur rejoué automatiquement.
+
+### Mesure de l’optimisation
+
+Mesures du 22 octobre sur le même poste, Node 24.14.1, Next 16.4.0 en mode production,
+PGlite vide avant chaque mesure, vingt joueurs préparés par l’API, vingt connexions et dix
+secondes par scénario, limitation locale désactivée. Les bases de travail ont été conservées
+à part puis restaurées. Résultats bruts : [avant](../perf/avant.json), [après](../perf/apres.json),
+[budget](../perf/budget.json), [script](../scripts/load-test.ts).
+
+| Lecture | Débit avant (req/s) | Débit après | p99 avant (ms) | p99 après |
+| --- | --- | --- | --- | --- |
+| Village | 446 | 445 | 66 | 63 |
+| Expéditions ouvertes | 256 | 359 | 96 | 68 |
+| Classement | 220 | 299 | 119 | 85 |
+| Marché | 191 | 248 | 138 | 103 |
+| Taverne | 418 | 410 | 69 | 64 |
+
+Le budget était déjà respecté avant la modification. Le gain de débit atteint environ
+40 %, 36 % et 30 % pour les trois lectures avec projection ; Village et Taverne restent
+stables (moins de 2 %). Cette contre-épreuve est cohérente avec l’hypothèse du verrou et
+de l’écriture inutiles. Il s’agit d’une paire de mesures, pas d’une estimation statistique
+ni d’une mesure des démarrages à froid ou du réseau Neon.
+
+Trois contre-épreuves ont été exécutées puis retirées : import interdit de la table du
+journal, retour de Better Auth au stockage mémoire, désactivation du chemin rapide des
+projections. Chacune fait échouer son contrôle. Le test du chemin rapide vérifie aussi
+qu’aucune transaction n’est appelée, sans dépendre de la précision de l’horloge.
+
+## 4. La dette technique
+
+| Indicateur | Valeur |
+| --- | --- |
+| Entrées consignées | 25 |
+| Entrées remboursées | 7 : DT-001 à DT-007, au TD prévu |
+| Entrées ouvertes | 18 : DT-008 à DT-025 |
+| Dettes préalables au déploiement du service | DT-015 à DT-017 |
+
+Le [registre](qualite/dette-technique.md) conserve l’historique. DT-004 est remboursée par
+les compteurs partagés ; DT-007 par l’avertissement quotidien et le script d’examen/relance.
+Les sept dettes RGPD du TD10 n’ont pas été remboursées à leur réexamen prévu au TD11 :
+l’échéance est dépassée et leur replanification est explicite. Les autres entrées rattachent
+les actions des anciennes revues au registre, ainsi que la conservation des nouvelles clés
+IP/route et l’absence de tests d’interface. Le nombre d’entrées augmente en partie par
+un meilleur inventaire, sans constituer une correction des risques correspondants.
+
+Les commentaires se retrouvent par `git grep -n "DETTE TECHNIQUE" -- src scripts app`.
+DT-012 concerne les attestations et informations documentaires, sans raccourci de code.
+
+## 5. Les revues
+
+| Revue | Exigences | Conformes | Non conformes | Risque accepté | Actions ouvertes |
+| --- | --- | --- | --- | --- | --- |
+| [Authentification](qualite/revue-securite-authentification.md) | 16 | 11 | 5 | 0 | A1/A2 : DT-018 ; A4 : DT-019 ; A5 : DT-021 ; A6 : DT-020. Compteurs partagés corrigés, autres limites de S3 conservées |
+| [Donjon](qualite/revue-securite-donjon.md) | 14 | 12 aux contrôles du TD | 2 | 0 | D10 : échéance par un non-membre, DT-022 ; D14 : métadonnées globales, DT-023 |
+| [Marché](qualite/revue-securite-marche.md) | 10 | 10 | 0 | 0 | Pas d’action de sécurité ouverte dans cette revue ; conservation outbox suivie par DT-011 |
+| [RGPD](rgpd/revue-conformite.md) | 10 | 5 | 5 | 0 | DT-008 à DT-014 ; nouveaux compteurs inventoriés en T8 et DT-024 |
+
+La conformité du Donjon ne démontre pas l’imprévisibilité cryptographique de son générateur.
+La revue RGPD demeure celle du TD10, complétée par l’inventaire des compteurs dans le
+[registre des traitements](rgpd/registre-traitements.md). Aucune conclusion globale de
+conformité n’est déduite du succès des tests. Les garanties contractuelles et la région Neon
+restent à attester ; le rendu visuel et les consoles Vercel/Neon n’étaient pas accessibles
+pour les vérifications de ce TD.
+
+## 6. Risques et recommandations
+
+| N° | Risque | Signe avant-coureur | Recommandation |
+| --- | --- | --- | --- |
+| 1 | Charge et croissance du journal, des flux SSE et de la boîte d’envoi | p99 proche de 500 ms, première lecture lente, erreurs ou messages abandonnés | Rejouer la charge sur volume croissant, surveiller le cron et les abandons, définir les conservations ; mesurer avant toute autre optimisation |
+| 2 | Réserves de sécurité et de données personnelles non clôturées | Ouverture hors cadre pédagogique, autre hébergement, demande de rectification/export complet | Prioriser DT-008 à DT-014 et DT-018 à DT-024, attester les prestataires ; ne pas présenter les revues comme une certification |
+| 3 | Régression du parcours navigateur | Changement d’un écran, du cycle React ou de la reconnexion, absent des tests HTTP | Ajouter un parcours de bout en bout à deux joueurs avant refonte, surveiller les délais SSE ; DT-025 |
+
+## 7. Conclusion
+
+Le système peut être repris grâce aux contrats publics, aux tests, aux mesures et à la
+documentation des décisions. Son évolution demande de conserver ces contrôles, de vérifier
+les parcours déployés et de traiter les réserves ouvertes. Le monolithe reste adapté à
+l’exploitation actuelle. L’extraction est techniquement démontrée ; son déploiement ne
+serait justifié qu’après un besoin observable et le remboursement de ses dettes.
+
+## Usage de l’IA générative
+
+Assistance à la rédaction et à la relecture. Vérification des chiffres par les commandes
+de tests et de couverture, les mesures de charge, les essais HTTP et le rapprochement des
+revues avec le code et le registre de dette.

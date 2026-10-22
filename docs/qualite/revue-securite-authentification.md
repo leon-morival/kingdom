@@ -131,3 +131,14 @@ ne couvre pas les erreurs d'initialisation survenant avant l'entrée dans Hono.
 Pour S14, une panne de base pendant la suppression de session n'a pas été
 simulée ; Better Auth journalise cette erreur, ce qui mérite un test de panne
 distinct. Aucun de ces points non vérifiés n'est présenté comme un risque accepté.
+
+## Réexamen au TD11 — 22 octobre 2026
+
+Le test de limitation et sa contre-épreuve démontrent désormais le stockage partagé dans
+`identity.rate_limit` : 60 réponses 401 puis 429, avec une ligne dont le compteur vaut 60.
+Le même test échoue avec le stockage en mémoire. DT-004 est remboursée ; le volet « compteurs
+non partagés » du constat S3 est donc dépassé. S3 reste non conforme pour ses limites hors
+Vercel ; la synthèse demeure à 11 conformes et 5 non conformes.
+
+Les actions restantes sont suivies par DT-018 (A1/A2), DT-019 (A4), DT-021 (A5) et DT-020
+(A6). La conservation des nouvelles clés IP/route est inventoriée en T8 et DT-024.

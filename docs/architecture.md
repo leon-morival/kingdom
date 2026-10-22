@@ -28,7 +28,7 @@ flowchart TB
   subgraph royaumes["Système Royaumes"]
     web["Interface web<br/>[Conteneur : React, dans le navigateur]<br/>Pages du jeu, connexion et Mes données"]
     serveur["Application serveur<br/>[Conteneur : Next.js et Hono, fonctions Vercel, Francfort]<br/>Rendu des pages, API JSON,<br/>authentification, flux temps réel"]
-    base[("Base de données<br/>[Conteneur : PostgreSQL, Neon, région configurée au déploiement]<br/>Schéma platform : journal, points de reprise,<br/>boîte d'envoi, registre des effacements<br/>Schéma identity : comptes et sessions<br/>Schémas ranking, dungeon et market :<br/>modèles de lecture<br/>Schéma tavern : messages et présence")]
+    base[("Base de données<br/>[Conteneur : PostgreSQL, Neon, région configurée au déploiement]<br/>Schéma platform : journal, points de reprise,<br/>boîte d'envoi, registre des effacements<br/>Schéma identity : comptes, sessions et limitation<br/>Schémas ranking, dungeon et market :<br/>modèles de lecture<br/>Schéma tavern : messages et présence")]
   end
   joueur -->|"Utilise"| web
   web -->|"Pages, appels de l'API avec le cookie de session<br/>(HTTPS, JSON)"| serveur
@@ -70,7 +70,7 @@ flowchart TB
   end
   subgraph modules["src/modules"]
     system["system<br/>Route de santé"]
-    realm["realm<br/>Village : domaine, service,<br/>dépôt fondé sur le journal, API, canal"]
+    realm["realm<br/>Village intégré ou distant : domaine, API,<br/>journal ou passerelle, relais, canal"]
     dungeon["dungeon<br/>Donjon : domaine et IA, service,<br/>dépôt fondé sur le journal, API, canal discret,<br/>projection des expéditions ouvertes"]
     ranking["ranking<br/>Classement : projection,<br/>lecture, API, canal global"]
     market["market<br/>Marché : orchestrateur de la saga,<br/>projection des offres, API, canal global"]
@@ -78,11 +78,11 @@ flowchart TB
   end
   subgraph platform["src/platform"]
     auth["auth<br/>Port AuthPort,<br/>adaptateur Better Auth"]
-    http["http<br/>Intergiciel requireUser,<br/>validation des requêtes"]
+    http["http<br/>Intergiciels requireUser et secret de service,<br/>validation des requêtes"]
     realtime["realtime<br/>Flux SSE, règles d'accès<br/>aux canaux, flux, canaux globaux<br/>et sources fournies par les modules"]
     store["event-store<br/>Journal d'événements,<br/>concurrence optimiste"]
     projection["projection<br/>Rattrapage et reconstruction<br/>des projections"]
-    outbox["outbox<br/>Boîte d'envoi et distributeur"]
+    outbox["outbox<br/>Boîte d'envoi, distributeur et réception"]
     privacy["Droits des joueurs<br/>privacy"]
     cronapi["Tâches quotidiennes<br/>cron"]
     db["db<br/>Client Drizzle<br/>(Neon ou PGlite)"]
@@ -141,7 +141,11 @@ dependency-cruiser (`.dependency-cruiser.cjs`) à chaque exécution de `pnpm ver
 - un module n'est accessible que par ses entrées publiques (`index.ts`, `contracts.ts`, `ui.tsx`) ;
 - le domaine d'un module ne dépend d'aucune bibliothèque technique ;
 - le code destiné au navigateur ne dépend d'aucun code serveur ;
-- aucune dépendance circulaire n'est admise.
+- aucune dépendance circulaire n'est admise ;
+- les modules ne peuvent pas importer les tables de la plateforme.
+
+Deux tests d’aptitude complètent ces règles : toutes les tables doivent appartenir au schéma
+d’un propriétaire connu, et chaque module persistant doit déclarer `personal-data.ts`.
 
 Seule la racine de composition connaît à la fois la plateforme et l'ensemble des modules.
 
@@ -149,6 +153,73 @@ Seule la racine de composition connaît à la fois la plateforme et l'ensemble d
 
 Ce niveau n'est pas dessiné : il est décrit par le code lui-même et par ses tests, que
 tout diagramme maintenu à la main ne tarderait pas à contredire.
+
+## Extraction locale du Village
+
+L’[ADR 0009](adr/0009-extraction-village.md) prépare un service autonome sans modifier
+l’exploitation de production. `src/services/village/village-service.ts` compose le Village
+avec son propre journal, sa boîte d’envoi et ses droits des joueurs. Le domaine demeure
+celui de `realm` ; seul `remote.ts`, exporté par son entrée publique, connaît le contrat distant.
+
+```mermaid
+flowchart LR
+  joueur["Navigateur"] --> app["Application Next.js et Hono<br/>Passerelle /api/realm<br/>Marché, Classement, autres modules"]
+  app -->|"API et messages<br/>Secret partagé, identité de session"| service["Service Village : Hono<br/>Processus local, port 4000"]
+  service -->|"Réponses de saga<br/>POST /api/internal/messages"| app
+  service -->|"GET /events : flux publié"| relais["Relais du module distant"]
+  relais --> local[("Base application<br/>.data/pglite<br/>Copies du Village et point de reprise")]
+  app --> local
+  service --> distant[("Base du service<br/>.data/village<br/>Journal et boîte d’envoi propres")]
+```
+
+Les en-têtes d’identité sont reconstruits à partir de la session par la passerelle ; ceux
+fournis par le navigateur ne sont pas transmis. Le service exige le secret avant de les
+lire. La réception ne répond 204 qu’après traitement ; les erreurs laissent le message
+chez l’expéditeur, qui le retentera. Le transfert reste idempotent par son identifiant.
+
+Le relais recopie les flux et versions dans le journal local et conserve sa position via
+le moteur des projections. Il n’avance pas devant une position manquante récente et sa
+position ne recule pas en cas d’appels concurrents. Le Classement et les canaux SSE lisent
+ces copies sans connaître le service. La copie est une donnée dérivée : sa cohérence est
+différée. L’export appelle le service ; l’effacement corrige les deux journaux.
+
+### Réservation d’une offre avec le Village distant
+
+```mermaid
+sequenceDiagram
+  participant M as Marché (application)
+  participant BA as Boîte d'envoi (application)
+  participant V as Service Village
+  participant BV as Boîte d'envoi (service)
+  participant R as Relais (application)
+  M->>BA: realm.withdraw (offre, ressources)
+  BA->>V: POST /messages
+  V->>V: prélèvement des ressources (ResourcesWithdrawn)
+  V->>BV: réponse au Marché
+  BV->>M: POST /api/internal/messages (réponse)
+  M->>M: offre ouverte (OfferOpened)
+  V-->>BA: 204
+  BA->>R: relais après le message
+  R->>V: GET /events?after=position
+  V-->>R: événements postérieurs
+  R->>R: copie dans le journal de l'application
+```
+
+Les huit tests de `src/bootstrap/village-service.test.ts` utilisent deux bases et échangent
+des requêtes Hono sérialisées, sans TCP. Un essai local à deux processus a aussi vérifié les
+stocks après échange, le Classement, le SSE du Village, une panne isolée, son rétablissement
+et le retour au module intégré avec les événements relayés. Aucun transfert initial de
+villages existants vers le service n’est automatisé. Les trois dettes de préparation à la
+production sont DT-015 à DT-017 ; la base locale reçoit encore toutes les migrations.
+
+## Performance des lectures
+
+Une projection à jour vérifie son point de reprise, sa version et la dernière position
+du journal sans ouvrir de transaction. Si elle est en retard ou si sa version change,
+le rattrapage transactionnel et ses garanties restent inchangés. Le test du budget vérifie
+l’absence de transaction et de réécriture du point de reprise. Les mesures
+[`perf/avant.json`](../perf/avant.json) et [`perf/apres.json`](../perf/apres.json) documentent
+le gain local ; elles ne prédisent pas les latences de Vercel et Neon.
 
 ## Déploiement
 
@@ -174,3 +245,9 @@ présence périmés de la Taverne. Elle isole les erreurs et rapporte le résult
 Elle n'est exécutée qu'en
 production et nécessite la variable `CRON_SECRET` dans les réglages du projet Vercel.
 Les commandes et consultations du Marché déclenchent également la distribution.
+
+Le service Village n’est pas déployé. Sans `REALM_SERVICE_URL` et `SERVICE_SECRET`, la
+racine de composition utilise le module intégré. En mode distant local, la tâche
+quotidienne ajoute le relais du Village ; elle ne distribue pas la boîte d’envoi distante.
+Les messages abandonnés sont signalés dans les journaux et peuvent être examinés puis
+relancés avec `scripts/dead-letters.ts`, depuis un poste disposant déjà de l’accès à la base.

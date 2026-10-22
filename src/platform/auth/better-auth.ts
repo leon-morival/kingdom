@@ -49,6 +49,9 @@ function resolveSecret(): string {
   return 'dev-only-secret-not-for-production-use-0123456789'
 }
 
+// DETTE TECHNIQUE DT-018 (docs/qualite/dette-technique.md) : durcir secret, limite et IP hors Vercel.
+// DETTE TECHNIQUE DT-019 : l’inscription révèle les adresses existantes (revue S9).
+// DETTE TECHNIQUE DT-021 : clarifier l’exigence S5 face au cookie SameSite=Lax.
 /** Adaptateur du port d'authentification fondé sur Better Auth. */
 export function createBetterAuth(db: Db): AuthPort {
   const auth = betterAuth({

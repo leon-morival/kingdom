@@ -102,6 +102,8 @@ export function createDungeonApi(service: DungeonService) {
       })
 
       // Commande d'échéance, envoyée par l'interface lorsque son compte à rebours atteint zéro.
+      // DETTE TECHNIQUE DT-022 (docs/qualite/dette-technique.md) : vérifier l’appartenance
+      // avant de persister une échéance (revue D10).
       .post('/games/:id/deadline', async (c) => {
         const result = await service.execute(c.req.param('id'), c.var.userId, {
           type: 'CheckDeadline',

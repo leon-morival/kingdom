@@ -39,6 +39,10 @@ aucune n'est obligatoire. Pour définir vos propres valeurs, copiez ce fichier e
 | `pnpm lint:archi` | Vérification des règles d'architecture (dependency-cruiser) |
 | `pnpm typecheck` | Vérification des types (TypeScript) |
 | `pnpm test` | Exécution des tests (Vitest) |
+| `pnpm test:coverage` | Couverture des tests, rapport dans `coverage/` |
+| `pnpm exec tsx scripts/load-test.ts <étiquette>` | Charge locale et comparaison au budget, application de production démarrée |
+| `pnpm exec tsx scripts/dead-letters.ts [retry <id>]` | Liste des messages abandonnés ou relance d’un message |
+| `pnpm exec tsx scripts/village-service.ts` | Service Village local, avec `SERVICE_SECRET` |
 | `pnpm verify` | Ensemble des contrôles, à exécuter avant toute publication |
 | `pnpm db:generate --name <nom>` | Production d'une migration après la modification d'un fichier `schema.ts` |
 | `pnpm db:migrate` | Application des migrations à la base désignée par `DATABASE_URL_UNPOOLED` ou `DATABASE_URL` |
@@ -53,8 +57,10 @@ src/
   platform/           Plateforme technique, générique
   modules/            Modules métier, un répertoire par contexte délimité
   bootstrap/          Racine de composition
+  services/           Service Village extrait, utilisé localement
   ui/                 Thème et composants d'interface partagés
 scripts/              Scripts d'exploitation (migrations)
+perf/                 Budget et mesures de charge
 drizzle/              Migrations de la base de données
 docs/
   adr/                Décisions d'architecture
@@ -132,6 +138,45 @@ ce paiement, il déclenche les deux versements. Le retrait ou l'expiration d'une
 restitue les ressources en séquestre. La distribution a lieu après les commandes, à la consultation
 de la liste du Marché et chaque jour par `/api/cron/daily`, une tâche planifiée Vercel.
 
+## Service Village extrait
+
+Le Village peut s’exécuter dans un service distinct, avec une base, un journal et une boîte
+d’envoi propres ([ADR 0009](docs/adr/0009-extraction-village.md)). Cette configuration reste
+locale. Sur deux terminaux, utilisez le même secret, généré par `openssl rand -base64 32` :
+
+```bash
+SERVICE_SECRET=<secret> pnpm exec tsx scripts/village-service.ts
+REALM_SERVICE_URL=http://localhost:4000 SERVICE_SECRET=<secret> pnpm dev
+```
+
+Le service utilise `.data/village`, ou `VILLAGE_DATABASE_URL` si elle est définie. Ses
+requêtes passent par la passerelle de l’application, qui transmet l’identité de session.
+Un relais alimente le Classement et le temps réel par des copies du journal distant.
+L’export et l’effacement atteignent les deux processus. La tâche quotidienne rattrape le relais.
+
+Une base de service vide ne connaît pas les villages déjà présents dans l’application :
+utilisez des bases d’essai distinctes ou préparez leur migration. Le retour au mode intégré
+est possible une fois tous les événements relayés. Sans les deux variables du service,
+le Village reste intégré, comme sur Vercel ; ne les ajoutez pas à la production.
+
+## Performance
+
+Le [budget](perf/budget.json) impose un p99 inférieur à 500 ms, sans erreur, sous vingt
+connexions simultanées. `scripts/load-test.ts` crée vingt joueurs avec village, expédition,
+offre et message, puis mesure cinq lectures pendant dix secondes chacune. Le script
+échoue si la préparation des données ou le budget échoue. Il est exécuté séparément de
+`pnpm verify`, avant les publications qui modifient les performances.
+
+Pour une mesure comparable, arrêtez tout serveur utilisant la base locale, conservez cette
+base à part, puis utilisez une base PGlite vide pour chaque exécution : `pnpm build`,
+`AUTH_RATE_LIMIT=off pnpm start`, puis `pnpm exec tsx scripts/load-test.ts <étiquette>` dans
+un second terminal. Restaurez votre base après l’arrêt du serveur de mesure.
+
+Les [mesures avant](perf/avant.json) et [après](perf/apres.json), prises sur le même poste,
+montrent un gain de débit de 30 à 40 % pour les lectures utilisant une projection ; les
+lectures du Village et de la Taverne restent stables. Le chemin rapide évite une transaction
+si la projection est déjà à jour. Ces résultats locaux ne mesurent pas la production.
+
 ## Base de données
 
 En développement, la base PostgreSQL est fournie par PGlite et conservée dans le répertoire
@@ -175,6 +220,7 @@ reste fermée ; une requête sans le bon en-tête
 
 ## Documentation
 
+- [Bilan technique](docs/bilan-technique.md)
 - [Architecture](docs/architecture.md)
 - [Décisions d'architecture](docs/adr/README.md)
 - [Registre de la dette technique](docs/qualite/dette-technique.md)
@@ -209,7 +255,8 @@ sont recensées dans le registre de la dette technique.
 Une offre échue ne peut plus être acceptée ni être proposée aux autres joueurs. Ses ressources
 ne sont toutefois restituées qu'à la prochaine distribution, déclenchée par le Marché ou par
 la tâche quotidienne. Des états intermédiaires restent visibles pendant un échange ; un message
-abandonné après dix tentatives demande une intervention encore dépourvue d'outil dédié (DT-007).
+abandonné après dix tentatives demande un diagnostic manuel. La tâche quotidienne le signale ;
+`scripts/dead-letters.ts` le liste et permet sa relance une fois la cause corrigée (DT-007 remboursée).
 La boîte d'envoi conserve aussi les messages traités et croît tant qu'aucune purge n'est définie.
 
 La limitation des messages compte les insertions récentes en base ; des publications
@@ -219,5 +266,10 @@ n'est pas une preuve de connexion et plusieurs onglets partagent une même ligne
 L'effacement et l'export parcourent le journal et doivent évoluer si son volume dépasse
 le temps disponible pour une requête. La rectification du nom n'a pas de parcours dédié.
 La purge des sessions expirées, la minimisation des erreurs journalisées, les liens de
-réidentification et les garanties contractuelles des hébergeurs restent à traiter au TD11.
+réidentification et les garanties contractuelles des hébergeurs restent ouvertes après la revue du TD11 ; leurs échéances sont précisées dans le registre.
 La revue RGPD ne conclut pas à une conformité globale du service.
+
+Le service extrait demande encore des migrations dédiées, la pagination du flux publié et
+une distribution autonome des réponses en attente (DT-015 à DT-017). Le secret partagé
+permet l’usurpation de tout joueur auprès du service en cas de fuite. L’interface n’a
+pas de tests automatiques de bout en bout ; les contrôles HTTP ne vérifient pas son rendu.

@@ -63,6 +63,8 @@ export function getServer(): Server {
  * Les pages n'appellent pas l'API : elles interrogent directement le port d'authentification,
  * à partir des en-têtes de la requête reçue par Next.js.
  */
+// DETTE TECHNIQUE DT-020 (docs/qualite/dette-technique.md) : appeler cette garde près
+// de tout futur accès privé dans une page, pas uniquement depuis son layout partagé.
 export async function currentUser(headers: Headers): Promise<AuthUser | null> {
   const { auth, ready } = getServer()
   await ready

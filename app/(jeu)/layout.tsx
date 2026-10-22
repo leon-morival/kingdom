@@ -12,6 +12,8 @@ export const dynamic = 'force-dynamic'
  * Elle vérifie sur le serveur, avant tout rendu, qu'un joueur est connecté,
  * et redirige vers la page de connexion dans le cas contraire.
  */
+// DETTE TECHNIQUE DT-020 (docs/qualite/dette-technique.md) : le layout partagé ne suffit pas
+// à protéger un futur accès serveur aux données ; vérifier l’identité près de chaque lecture.
 export default async function GameLayout({ children }: { children: ReactNode }) {
   const user = await currentUser(await headers())
   if (!user) redirect('/login')

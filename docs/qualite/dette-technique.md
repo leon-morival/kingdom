@@ -26,3 +26,20 @@ Dans le code, chaque raccourci est signalé par un commentaire commençant par
 | DT-015 | Migrations du service Village : toutes les migrations en PGlite, aucune procédure dédiée pour `VILLAGE_DATABASE_URL` (`scripts/village-service.ts`) | Tables étrangères vides en local ; démarrage PostgreSQL impossible sur une base non préparée | Avant extraction en production (ADR 0009) | Ouverte |
 | DT-016 | Flux publié du Village en une seule réponse, sans pagination (`src/services/village/village-service.ts`) | Mémoire et durée du premier relais proportionnelles à tout l’historique distant | Avant extraction en production (ADR 0009) | Ouverte |
 | DT-017 | Distribution de la boîte d’envoi du service uniquement à réception d’un message (`src/services/village/village-service.ts`) | Une réponse en échec attend une nouvelle réception ; le cron de l’application ne distribue pas cette boîte distante | Avant extraction en production (ADR 0009) | Ouverte |
+| DT-018 | Configuration d’authentification supposant Vercel : secret de repli, désactivation de la limite et confiance dans l’IP hors Vercel (`src/platform/auth/better-auth.ts`) | Actions A1/A2 de la revue d’authentification encore ouvertes malgré les compteurs désormais partagés | Avant exposition publique sur un autre hébergeur | Ouverte |
+| DT-019 | Inscription révélant une adresse déjà inscrite (`src/platform/auth/better-auth.ts`) | Énumération des comptes, action A4/S9 de la revue d’authentification | Avant ouverture hors cadre pédagogique | Ouverte |
+| DT-020 | Garde des pages reposant sur le layout partagé (`app/(jeu)/layout.tsx`) | Le layout ne garantit pas une nouvelle vérification à chaque navigation ; les API restent protégées, action A6/S12 | Avant ajout d’un accès serveur à des données privées dans une page | Ouverte |
+| DT-021 | Politique de cookie Lax conservée malgré l’exigence S5 plus stricte (`src/platform/auth/better-auth.ts`) | Une navigation intersite peut transmettre le cookie ; clarification et tests navigateur attendus, action A5 | Avant clôture de la revue d’authentification | Ouverte |
+| DT-022 | Commande d’échéance du Donjon accessible aux non-membres (`src/modules/dungeon/api.ts`) | Un non-membre peut persister une résolution échue ; D10 demeure non conforme | Avant ouverture hors cadre pédagogique | Ouverte |
+| DT-023 | Métadonnées historiques d’expéditions diffusées par le canal global du Classement (`src/modules/ranking/index.ts`) | Découverte d’identifiants non tous présents dans les listes publiques ; D14 demeure non conforme | Avant ouverture hors cadre pédagogique | Ouverte |
+| DT-024 | Nettoyage des compteurs de connexion déclenché par l’activité Better Auth (`src/platform/auth/schema.ts`) | Clés IP/route non effacées avec le compte et conservation sans borne pendant l’inactivité ; pas de purge quotidienne dédiée | Avant ouverture hors cadre pédagogique | Ouverte |
+| DT-025 | Interface et reconnexions vérifiées par HTTP et contrôles manuels, sans tests de navigateur (`src/platform/realtime/use-channel.ts`) | Une régression visuelle ou du cycle React peut échapper aux 238 tests | Avant refonte de l’interface ou du client temps réel | Ouverte |
+
+## Réexamen du 22 octobre 2026
+
+DT-004 et DT-007 sont remboursées au TD prévu. Les dettes DT-008 à DT-014 issues du TD10
+restent ouvertes : la revue n’a pas apporté les corrections ni les attestations nécessaires.
+Leur échéance TD11 est donc échue ; elles doivent être replanifiées avant une ouverture
+hors du cadre pédagogique. L’ajout de DT-018 à DT-023 rattache au registre des actions déjà
+présentes dans les anciennes revues, sans prétendre qu’elles viennent d’être corrigées.
+Les dettes du service extrait n’affectent pas son mode intégré utilisé en production.

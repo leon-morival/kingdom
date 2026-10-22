@@ -1,4 +1,7 @@
 'use client'
+
+// DETTE TECHNIQUE DT-025 (docs/qualite/dette-technique.md) : aucun test navigateur ne couvre
+// encore le cycle de reconnexion et le rendu React.
 import { useEffect, useRef, useState } from 'react'
 
 /** État de la connexion à un canal, affiché par l'interface. */

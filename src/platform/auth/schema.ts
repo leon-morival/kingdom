@@ -67,6 +67,7 @@ export const verification = identity.table('verification', {
 })
 
 /** Compteurs partagés entre instances, par route et adresse IP. */
+// DETTE TECHNIQUE DT-024 (docs/qualite/dette-technique.md) : pas de purge pendant l’inactivité.
 export const rateLimit = identity.table('rate_limit', {
   id: text('id').primaryKey(),
   key: text('key').notNull().unique(),
