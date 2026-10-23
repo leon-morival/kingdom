@@ -75,9 +75,3 @@ du journal, des sauvegardes et des effacements concurrents du projet s'appliquen
 5. B10 : parcours navigateur avec Playwright.
 
 Le versement simple ne revendique pas B5 (saga compensable).
-
-## Usage de l'IA générative
-
-Codex a proposé cette idée, retenue par Leon, puis aidé au cadrage. Il est utilisé
-pour l'implémentation, les tests et la documentation. Le rendu précisera les
-vérifications réellement exécutées ; aucune relecture humaine n'est présumée.

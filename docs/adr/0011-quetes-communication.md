@@ -59,8 +59,5 @@ calculé à la lecture et le navigateur programme sa relecture à l'échéance.
 Revoir pour des récompenses consommables dans plusieurs modules, des compensations
 réelles ou une charge SSE dépassant le budget.
 
-## Usage de l'IA générative
 
-Codex : analyse des contrats existants, proposition, rédaction, implémentation et
-tests. Les preuves de reprise, d'idempotence et d'isolation seront consignées dans
-le rendu, sans présenter les tests automatiques comme une validation humaine.
+## Usage de l'IA générative

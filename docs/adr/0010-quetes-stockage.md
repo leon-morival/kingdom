@@ -53,8 +53,5 @@ indépendant de la projection, empêche leur réapparition pour un compte suppri
 Revoir si le catalogue devient configurable, si les quêtes ont une durée différente
 ou si la reconstruction dépasse le budget d'une requête.
 
-## Usage de l'IA générative
 
-Codex : proposition de la séparation des données, rédaction et implémentation.
-Vérification prévue par tests de reconstruction, concurrence, conservation et
-effacement, référencés avec leurs résultats dans le document de rendu.
+## Usage de l'IA générative
