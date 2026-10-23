@@ -1,7 +1,7 @@
 'use client'
 
-// DETTE TECHNIQUE DT-025 (docs/qualite/dette-technique.md) : aucun test navigateur ne couvre
-// encore le cycle de reconnexion et le rendu React.
+// DETTE TECHNIQUE DT-025 (docs/qualite/dette-technique.md) : les tests navigateur couvrent
+// les Quêtes et le Village, pas tous les canaux ni une coupure réseau prolongée.
 import { useEffect, useRef, useState } from 'react'
 
 /** État de la connexion à un canal, affiché par l'interface. */

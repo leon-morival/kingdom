@@ -39,6 +39,7 @@ aucune n'est obligatoire. Pour définir vos propres valeurs, copiez ce fichier e
 | `pnpm lint:archi` | Vérification des règles d'architecture (dependency-cruiser) |
 | `pnpm typecheck` | Vérification des types (TypeScript) |
 | `pnpm test` | Exécution des tests (Vitest) |
+| `pnpm test:e2e` | Construction puis parcours Chromium ordinateur et mobile, avec une base locale isolée |
 | `pnpm test:coverage` | Couverture des tests, rapport dans `coverage/` |
 | `pnpm exec tsx scripts/load-test.ts <étiquette>` | Charge locale et comparaison au budget, application de production démarrée |
 | `pnpm exec tsx scripts/dead-letters.ts [retry <id>]` | Liste des messages abandonnés ou relance d’un message |
@@ -79,6 +80,7 @@ Un module n'est accessible depuis l'extérieur que par ses entrées publiques : 
 | `dungeon` | Donjon : expéditions de un à quatre héros, compagnons pilotés par l'ordinateur, deux niveaux de difficulté, combats en manches simultanées | `/api/dungeon` |
 | `ranking` | Classement des joueurs, construit à partir des événements du Village et du Donjon | `/api/ranking` |
 | `market` | Marché : échanges de ressources entre joueurs, par une saga orchestrée | `/api/market` |
+| `quests` | Quêtes quotidiennes : objectifs, progression privée et récompenses versées au Village | `/api/quests` |
 | `tavern` | Taverne : salon commun, messages et présence temporaire | `/api/tavern` |
 
 ## Temps réel
@@ -125,6 +127,49 @@ La route quotidienne purge les messages et la présence même sans visite, au pr
 passage réussi. Le [registre des traitements](docs/rgpd/registre-traitements.md) et la
 [revue de conformité](docs/rgpd/revue-conformite.md) décrivent les durées et limites réelles.
 
+## Quêtes quotidiennes
+
+Le [tableau des contrats](/quests) propose chaque jour trois objectifs : améliorer un
+bâtiment (20 or), gagner une expédition (40 bois), conclure un échange au Marché
+(30 pierre, pour chacun des deux participants). Les journées commencent à **00:00 UTC**.
+Les actions du jour comptent même avant la première visite. Un village est nécessaire
+pour réclamer les récompenses. Chaque contrat ne peut être réclamé qu'une fois par jour.
+
+La progression vient d'une projection versionnée du journal. Les réclamations sont des
+lignes indépendantes de cette projection, accompagnées d'un message transactionnel vers
+le Village. « Versement en cours » signifie que la demande est enregistrée ; « Récompense
+versée » signifie que le Village a confirmé. Une demande acceptée avant minuit reste due
+le lendemain. La distribution est relancée à la consultation et par le cron existant.
+
+`GET /api/quests/board` renvoie seulement le tableau du joueur connecté ;
+`POST /api/quests/claim` accepte uniquement `day` et `questId`. Le canal
+`quests-<joueur>` est privé et ne diffuse que des invalidations, sans contenu du journal.
+La reconnexion et le retour sur l'onglet relisent le tableau. Le renouvellement à minuit
+ne dépend pas du cron. La tâche quotidienne purge les progressions, notifications et
+réclamations versées anciennes ; les versements en attente sont conservés.
+
+L'export contient la progression, les réclamations, les participations de calcul et les
+notifications. L'effacement les supprime et conserve un marqueur pseudonyme empêchant
+leur recréation au rejeu. Voir les [ADR 0010](docs/adr/0010-quetes-stockage.md) et
+[0011](docs/adr/0011-quetes-communication.md).
+
+## Tests navigateur
+
+Installer Chromium une fois : `pnpm exec playwright install chromium`, puis lancer
+`pnpm test:e2e`. Le serveur de production est démarré par Playwright sur
+`http://localhost:3100`, avec une base PGlite `.data/e2e-<processus>` distincte de la base
+habituelle. Aucun serveur ne doit déjà occuper ce port. Les comptes synthétiques sont
+supprimés à la fin des parcours ; les bases locales restent disponibles pour diagnostic.
+Les traces en cas d'échec et les captures sont dans `test-results/`, exclu de Git.
+Les deux parcours sont exécutés en Chromium à 1280 × 900 et avec le profil mobile iPhone 13.
+Ce profil utilise Chromium : il ne prétend pas vérifier Safari sur iOS.
+
+Le parcours principal fonde un village, améliore sa scierie dans un deuxième onglet,
+observe la progression en direct, réclame la récompense, contrôle le stock, recharge,
+exporte les données et efface le compte. Le second vérifie l'isolation entre deux joueurs.
+Les tests HTTP/Vitest restent exécutés par `pnpm verify` ; les tests navigateur sont
+une commande séparée, car ils démarrent une construction et un serveur.
+
 ## Échanges entre modules
 
 Une opération qui modifie les données de plusieurs modules, comme un échange du Marché, est
@@ -163,7 +208,7 @@ le Village reste intégré, comme sur Vercel ; ne les ajoutez pas à la producti
 
 Le [budget](perf/budget.json) impose un p99 inférieur à 500 ms, sans erreur, sous vingt
 connexions simultanées. `scripts/load-test.ts` crée vingt joueurs avec village, expédition,
-offre et message, puis mesure cinq lectures pendant dix secondes chacune. Le script
+offre et message, puis mesure six lectures, Quêtes comprises, pendant dix secondes chacune. Le script
 échoue si la préparation des données ou le budget échoue. Il est exécuté séparément de
 `pnpm verify`, avant les publications qui modifient les performances.
 
@@ -176,6 +221,11 @@ Les [mesures avant](perf/avant.json) et [après](perf/apres.json), prises sur le
 montrent un gain de débit de 30 à 40 % pour les lectures utilisant une projection ; les
 lectures du Village et de la Taverne restent stables. Le chemin rapide évite une transaction
 si la projection est déjà à jour. Ces résultats locaux ne mesurent pas la production.
+
+La [mesure de l'évaluation](perf/evaluation-environment.md) du 23 octobre ne reproduit
+pas ces latences : plusieurs scénarios dépassent le budget, y compris sur la contre-épreuve
+du socle `td11-fin`. Les Quêtes atteignent un p99 de 965 ms sous vingt connexions, sans
+erreur. Cette limite est suivie dans DT-028 ; le bonus B7 n'est pas revendiqué.
 
 ## Base de données
 
@@ -220,6 +270,9 @@ reste fermée ; une requête sans le bon en-tête
 
 ## Documentation
 
+- [Rendu de l’évaluation](docs/evaluation/rendu.md)
+- [Fiche de cadrage des Quêtes](docs/evaluation/fiche-cadrage.md)
+- [Revue de sécurité des Quêtes](docs/qualite/revue-securite-quetes.md)
 - [Bilan technique](docs/bilan-technique.md)
 - [Architecture](docs/architecture.md)
 - [Décisions d'architecture](docs/adr/README.md)
@@ -273,3 +326,15 @@ Le service extrait demande encore des migrations dédiées, la pagination du flu
 une distribution autonome des réponses en attente (DT-015 à DT-017). Le secret partagé
 permet l’usurpation de tout joueur auprès du service en cas de fuite. L’interface n’a
 pas de tests automatiques de bout en bout ; les contrôles HTTP ne vérifient pas son rendu.
+
+
+Les Quêtes utilisent un catalogue fixe. La progression est cohérente à terme ; le joueur
+peut devoir actualiser après une action très récente. Les participations aux expéditions
+jamais terminées restent conservées (DT-026). Le marqueur d'effacement est pseudonyme et
+les remises déjà en cours ne sont pas annulables (DT-027). Les messages abandonnés passent
+par l'outil d'exploitation existant, sans garantie de délai de versement. Les tests
+navigateur couvrent les Quêtes et le Village, pas encore tous les écrans du jeu (DT-025).
+
+La mesure locale de charge des Quêtes dépasse le budget de 500 ms (DT-028). Les résultats
+ne permettent pas d'affirmer une capacité de production ni l'absence de régression ;
+une mesure stabilisée doit précéder l'augmentation de charge.

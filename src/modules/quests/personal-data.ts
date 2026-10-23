@@ -56,6 +56,8 @@ export function createQuestsPersonalData(db: Db, repo: QuestsRepository): Person
       }
     },
     async erase(playerId) {
+      // DETTE TECHNIQUE DT-027 : le marqueur pseudonyme empêche le rejeu, mais un message
+      // déjà remis à un autre processus peut encore terminer pendant l'effacement (DT-011).
       await db.transaction(async (tx) => {
         await tx.insert(erasedPlayers).values({ playerId }).onConflictDoNothing()
         const rewards = await tx.select().from(claims).where(eq(claims.playerId, playerId))

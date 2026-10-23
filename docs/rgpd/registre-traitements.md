@@ -5,7 +5,7 @@ Ce registre, prévu par l'article 30 du RGPD, recense les traitements de Royaume
 mesures de protection dans le même changement que le code.
 
 - Responsable du traitement : Leon Morival — leon.morival@gmail.com.
-- Dernière mise à jour : 2026-10-22.
+- Dernière mise à jour : 2026-10-23.
 - Personnes concernées : joueurs inscrits et visiteurs pour les journaux techniques.
 - Périmètre : application, base active, journaux et prestations d'hébergement. Les bases
   de développement et de test utilisent des données synthétiques pour la présente revue.
@@ -40,6 +40,8 @@ adaptées ; un document technique ne remplace pas cette information (DT-012).
 | T7 | Journaux techniques | Diagnostic et sécurité | IP, navigateur, chemin et paramètres de requête, dates, erreurs ; contenu personnel possible dans une erreur SQL | Joueurs et visiteurs | Intérêt légitime de maintenance et sécurité, avec minimisation | Runtime Logs : fenêtre publiée de **1 heure pour Hobby** ; Pro 1 jour, Enterprise 3 jours, extensions possibles. Les logs de construction ont une conservation distincte. La suppression de compte ne purge pas ces traces ; durée des copies et sauvegardes non attestée (DT-010, DT-011, DT-012) | Vercel ; sortie du serveur local en développement |
 | T8 | Limitation des connexions et inscriptions | Prévenir les essais massifs avec des compteurs communs aux instances | Clé composée de l’IP et du chemin, compteur et date de dernière tentative ; pas d’identifiant de compte | Joueurs et visiteurs | Intérêt légitime de sécurité à documenter | Fenêtres configurées de 60 secondes ; Better Auth élague les anciennes lignes lors de certaines requêtes réinitialisant une fenêtre, sans purge quotidienne. Une ligne peut donc subsister pendant l’inactivité ; pas d’effacement par compte (DT-024) | `identity.rate_limit` |
 
+| T9 | Quêtes quotidiennes | Calcul des objectifs et versement unique des récompenses | Identifiant du joueur, jour, objectif et progression, participations et échanges de calcul, réclamations (montant, état, dates, identifiant de mouvement), notifications | Joueurs | Finalité de jeu, dans les réserves générales du registre | Progression et réclamations versées : 30 journées UTC glissantes ; notifications : 30 jours ; suppression physique au prochain cron réussi. Réclamations en attente jusqu'au versement ou à l'effacement. Participations jusqu'à fin de partie (DT-026), relations Village jusqu'à effacement, marqueur pseudonyme d'effacement sans durée arrêtée (DT-027). Copies du mouvement dans le journal et la boîte d'envoi : limites de T3/DT-011 | `quests.*`, demandes/réponses dans `platform.outbox`, mouvements dans le journal du Village |
+
 La [documentation Runtime Logs](https://vercel.com/docs/logs/runtime) décrit les durées
 par offre, `requestPath` et le filtrage par IP/navigateur. La fenêtre consultable n'est pas
 une preuve d'effacement de toute copie interne, notamment après changement d'offre.
@@ -66,9 +68,20 @@ Les garanties et limites sont examinées dans les revues de sécurité et de con
 
 | Droit | Mise en œuvre et limites |
 | --- | --- |
-| Accès et portabilité (articles 15 et 20) | « Mes données », export JSON via `/api/account/export` : six contributeurs, compte et sessions, village courant, participations, offres, messages, présence et classement. L'export ne contient pas encore tout l'historique individuel des actions ni les traces hébergées : DT-014. |
+| Accès et portabilité (articles 15 et 20) | « Mes données », export JSON via `/api/account/export` : sept contributeurs, compte et sessions, village courant, participations, offres, messages, présence et classement. L'export ne contient pas encore tout l'historique individuel des actions ni les traces hébergées : DT-014. |
 | Effacement (article 17) | `DELETE /api/account`, uniquement pour le joueur connecté : réécriture des noms, correction des projections, suppression des messages, présence et identité en dernier. Reprise possible après interruption. Les sauvegardes, journaux externes et copies faites par autrui restent hors de cette opération : DT-011. |
 | Rectification (article 16) | Aucun parcours de correction coordonnée du nom et de ses copies ; une modification isolée de l'identité ne corrigerait pas les événements existants : DT-008. |
 
 Références : [droits des personnes, texte du RGPD publié par la CNIL](https://www.cnil.fr/fr/reglement-europeen-protection-donnees/chapitre3),
 [ADR 0008](../adr/0008-donnees-personnelles.md), [revue de conformité](revue-conformite.md).
+
+
+### Protection et droits pour les Quêtes
+
+Le module ne copie aucun nom ni texte libre. Routes et canal privé sont liés à l'identité
+de session ; les montants sont calculés sur le serveur. L'export inclut les données de
+calcul et de récompense du seul joueur. L'effacement retire ses tables et les messages
+encore identifiables par ses réclamations, puis conserve un marqueur pseudonyme empêchant
+la reconstruction de recréer sa progression. Aucun événement propre aux Quêtes n'est
+à réécrire. Les mouvements du Village demeurent sous le régime du journal existant.
+Le marqueur et les remises concurrentes empêchent de qualifier ce parcours d'anonymisation.

@@ -35,6 +35,19 @@ Dans le code, chaque raccourci est signalé par un commentaire commençant par
 | DT-024 | Nettoyage des compteurs de connexion déclenché par l’activité Better Auth (`src/platform/auth/schema.ts`) | Clés IP/route non effacées avec le compte et conservation sans borne pendant l’inactivité ; pas de purge quotidienne dédiée | Avant ouverture hors cadre pédagogique | Ouverte |
 | DT-025 | Interface et reconnexions vérifiées par HTTP et contrôles manuels, sans tests de navigateur (`src/platform/realtime/use-channel.ts`) | Une régression visuelle ou du cycle React peut échapper aux 238 tests | Avant refonte de l’interface ou du client temps réel | Ouverte |
 
+| DT-026 | Participations des Quêtes sans échéance pour une expédition jamais terminée (`src/modules/quests/infrastructure/quests-projection.ts`) | Une partie abandonnée conserve la relation joueur/expédition ; la purger arbitrairement ferait perdre un futur contrat légitime | Avant ouverture hors cadre pédagogique, définir avec le Donjon une expiration des parties | Ouverte |
+| DT-027 | Marqueur pseudonyme d'effacement des Quêtes et absence d'annulation des remises en cours (`src/modules/quests/personal-data.ts`) | Le marqueur conserve l'identifiant pour empêcher le rejeu ; un message déjà remis peut finir pendant l'effacement, comme DT-011 | Avant extraction en production, coordonner effacement et distribution ; définir une durée de journal permettant de retirer les marqueurs | Ouverte |
+
+| DT-028 | Rattrapage de la projection des Quêtes dans la requête et budget local dépassé (`src/modules/quests/application/quests-service.ts`) | p99 de 965 ms sous vingt connexions ; plusieurs lectures du socle dépassent aussi 500 ms sur le poste actuel. Les mesures ne suffisent pas à isoler la cause ou garantir l'absence de régression | Avant augmentation de la charge, mesurer sur environnement stabilisé, séparer rattrapage et lecture à jour, puis optimiser d'après les traces | Ouverte |
+
+## Réexamen des Quêtes, 23 octobre 2026
+
+DT-025 est partiellement traitée : des parcours Playwright couvrent les Quêtes, le Village,
+la progression SSE, le rechargement et l'isolation, sur deux tailles d'écran. Les autres
+écrans et une coupure réseau réelle prolongée restent à couvrir ; la dette reste ouverte.
+DT-026 à DT-028 sont ajoutées avec leur commentaire dans le code. Les résultats bruts
+de charge et la contre-épreuve du socle figurent dans `perf/evaluation-environment.md`.
+
 ## Réexamen du 22 octobre 2026
 
 DT-004 et DT-007 sont remboursées au TD prévu. Les dettes DT-008 à DT-014 issues du TD10

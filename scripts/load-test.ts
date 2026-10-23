@@ -75,6 +75,7 @@ async function main() {
     { name: 'Classement', path: '/api/ranking/players' },
     { name: 'Marché', path: '/api/market/offers' },
     { name: 'Taverne', path: '/api/tavern/messages' },
+    { name: 'Quêtes', path: '/api/quests/board' },
   ]
 
   const results = []

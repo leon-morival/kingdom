@@ -12,7 +12,7 @@ dans le même commit que la modification qu'ils décrivent.
 ```mermaid
 flowchart TB
   joueur["Joueur<br/>[Personne]<br/>Joue depuis un navigateur,<br/>sur ordinateur ou sur téléphone"]
-  royaumes["Royaumes<br/>[Système logiciel]<br/>Jeu web multijoueur : village, donjon,<br/>classement, marché et taverne"]
+  royaumes["Royaumes<br/>[Système logiciel]<br/>Jeu web multijoueur : village, donjon,<br/>classement, marché, taverne et quêtes"]
   joueur -->|"Gère son village, joue avec les autres joueurs,<br/>reçoit les changements en direct (HTTPS)"| royaumes
 ```
 
@@ -28,7 +28,7 @@ flowchart TB
   subgraph royaumes["Système Royaumes"]
     web["Interface web<br/>[Conteneur : React, dans le navigateur]<br/>Pages du jeu, connexion et Mes données"]
     serveur["Application serveur<br/>[Conteneur : Next.js et Hono, fonctions Vercel, Francfort]<br/>Rendu des pages, API JSON,<br/>authentification, flux temps réel"]
-    base[("Base de données<br/>[Conteneur : PostgreSQL, Neon, région configurée au déploiement]<br/>Schéma platform : journal, points de reprise,<br/>boîte d'envoi, registre des effacements<br/>Schéma identity : comptes, sessions et limitation<br/>Schémas ranking, dungeon et market :<br/>modèles de lecture<br/>Schéma tavern : messages et présence")]
+    base[("Base de données<br/>[Conteneur : PostgreSQL, Neon, région configurée au déploiement]<br/>Schéma platform : journal, points de reprise,<br/>boîte d'envoi, registre des effacements<br/>Schéma identity : comptes, sessions et limitation<br/>Schémas ranking, dungeon et market :<br/>modèles de lecture<br/>Schéma tavern : messages et présence<br/>Schéma quests : progression, réclamations,<br/>notifications et marqueurs d’effacement")]
   end
   joueur -->|"Utilise"| web
   web -->|"Pages, appels de l'API avec le cookie de session<br/>(HTTPS, JSON)"| serveur
@@ -74,6 +74,7 @@ flowchart TB
     dungeon["dungeon<br/>Donjon : domaine et IA, service,<br/>dépôt fondé sur le journal, API, canal discret,<br/>projection des expéditions ouvertes"]
     ranking["ranking<br/>Classement : projection,<br/>lecture, API, canal global"]
     market["market<br/>Marché : orchestrateur de la saga,<br/>projection des offres, API, canal global"]
+    quests["quests<br/>Contrats quotidiens, projection,<br/>réclamations, API, canal privé"]
     tavern["tavern<br/>Messages et présence,<br/>tables ordinaires, API, source de canal"]
   end
   subgraph platform["src/platform"]
@@ -91,13 +92,15 @@ flowchart TB
   route --> server
   pages --> server
   server --> createapi
-  createapi --> system & realm & dungeon & ranking & market & tavern & auth & http & realtime & projection & outbox & privacy & cronapi
+  createapi --> system & realm & dungeon & ranking & market & tavern & quests & auth & http & realtime & projection & outbox & privacy & cronapi
   realm --> store & realtime & http & outbox
   market --> store & projection & realtime & http & outbox
   market -->|"Contrats publiés"| realm
   dungeon --> store & projection & realtime & http
   ranking --> projection & realtime & http
   tavern --> db & realtime & http & privacy
+  quests --> db & projection & realtime & http & outbox & privacy
+  quests -->|"Langage publié"| realm & dungeon & market
   realm & dungeon & market & ranking --> privacy
   privacy --> db
   cronapi --> http
@@ -251,3 +254,57 @@ racine de composition utilise le module intégré. En mode distant local, la tâ
 quotidienne ajoute le relais du Village ; elle ne distribue pas la boîte d’envoi distante.
 Les messages abandonnés sont signalés dans les journaux et peuvent être examinés puis
 relancés avec `scripts/dead-letters.ts`, depuis un poste disposant déjà de l’accès à la base.
+
+
+## Quêtes quotidiennes
+
+Le schéma `quests` sépare la projection `quests-progress` version 1 (villages,
+participations, échanges en cours, progression par joueur/jour/contrat) des réclamations
+qui font foi pour les versements. La projection utilise les événements publiés du Village,
+du Donjon et du Marché, en vérifiant leurs préfixes de flux. L'heure métier `data.at`
+détermine la journée UTC, même si un événement est relayé plus tard.
+Une reconstruction vide uniquement les tables dérivées. Les réclamations, marqueurs
+d'effacement et identifiants croissants des notifications restent intacts.
+
+Les canaux privés `quests-<joueur>` utilisent une source construite après autorisation,
+avec l'identifiant de session. Ils rattrapent la projection puis lisent les notifications
+propres au joueur. Ils ne transmettent que `QuestBoardChanged`, son identifiant et le nom
+du canal privé. Le navigateur relit le tableau au changement, à la reconnexion et à
+l'échéance ; il compense le décalage d'horloge à partir de l'heure renvoyée par le serveur.
+
+```mermaid
+sequenceDiagram
+  participant J as Joueur
+  participant Q as Quêtes
+  participant P as Projection
+  participant B as Boîte d'envoi
+  participant V as Village
+  J->>V: Améliorer un bâtiment
+  V->>V: Enregistrer BuildingUpgraded
+  J->>Q: Consulter le tableau
+  Q->>P: Rattraper les événements publiés
+  P->>P: Valider le contrat du jour
+  Q-->>J: Progression et récompense à réclamer
+  J->>Q: Réclamer (jour, contrat)
+  Q->>Q: Vérifier et insérer une réclamation unique
+  Q->>B: realm.deposit (dans la même transaction)
+  B->>V: Verser avec un identifiant stable
+  V->>V: Enregistrer le mouvement une seule fois
+  V->>B: quests.transfer-result
+  B->>Q: Confirmer le versement
+  Q->>Q: Marquer versée et notifier le canal privé
+  Q-->>J: Tableau actualisé
+```
+
+Les événements et stocks restent la propriété des partenaires. `enqueueMessages` et
+`discardMessages` sont des fonctions génériques de la plateforme, utilisées dans la
+transaction locale du module ; aucun import de table de la plateforme n'est ajouté.
+La lecture du tableau rassemble progression et réclamations dans une seule instruction SQL.
+Elle ne déclenche le distributeur que si le joueur a un versement en attente ; les commandes
+et le cron assurent aussi la distribution. La confirmation de versement est idempotente. Une réclamation répétée ne crée aucun
+message supplémentaire. Les détails et alternatives figurent dans les ADR 0010 et 0011.
+
+La tâche `quests` de `/api/cron/daily` purge les données datées hors conservation, mais
+pas les récompenses en attente. Le renouvellement quotidien est calculé à la lecture et
+fonctionne même si ce cron échoue. Les limites de rétention des participations et des
+marqueurs d'effacement sont consignées dans DT-026 et DT-027.

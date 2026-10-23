@@ -21,6 +21,8 @@ async function active(tx: DbTransaction, playerId: string) {
 
 /** Langage publié : seuls les événements et champs utiles sont lus, pas les états internes. */
 export function createQuestsProjection(clock = () => Date.now()): Projection {
+  // DETTE TECHNIQUE DT-026 : les participations aux expéditions jamais terminées n'expirent
+  // pas ; une borne demanderait de décider le sort de ces expéditions côté Donjon.
   async function credit(tx: DbTransaction, playerId: string, questId: QuestId, at: number) {
     if (!Number.isFinite(at) || !(await active(tx, playerId))) return
     const day = dayOf(at)

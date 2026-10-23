@@ -8,6 +8,8 @@ export function createQuestsService(
   clock = () => Date.now(),
 ) {
   async function board(playerId: string): Promise<QuestBoard> {
+    // DETTE TECHNIQUE DT-028 : le rattrapage reste dans la requête ; le budget local
+    // sous vingt connexions est dépassé. Voir les mesures de l'évaluation avant montée en charge.
     await repo.catchUp()
     const now = clock()
     const day = dayOf(now)

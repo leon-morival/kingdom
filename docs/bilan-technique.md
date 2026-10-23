@@ -1,12 +1,76 @@
 # Bilan technique de Royaumes
 
 - Date : 2026-10-23
-- Version examinée : travail du TD11, destiné à l’étiquette `td11-fin`
+- Versions examinées : socle `td11-fin`, puis module `quests` avant finalisation de `eval-fin`
 - Auteur : Leon Morival
 
 Ce bilan rassemble les décisions, mesures et limites du système livré. Les résultats
 locaux décrivent les scénarios exécutés ; ils ne certifient ni une capacité de production
 ni une conformité générale aux exigences de sécurité et de protection des données.
+
+## 0. Évaluation finale : module Quêtes
+
+Le tableau des contrats ajoute trois objectifs quotidiens et des récompenses idempotentes,
+avec projection privée, échéance UTC, SSE et tests navigateur. Le module représente
+1 123 lignes hors tests ; le total `src/` passe de 8 232 à 9 409 lignes. Il y a maintenant
+six modules de jeu, plus `system`. La migration `0013_quests.sql` crée seulement les sept
+tables du schéma `quests`. Aucun test du socle n'a été supprimé ou affaibli, et aucune
+règle de dependency-cruiser n'a été assouplie.
+
+### Indicateurs de qualité comparés
+
+| Indicateur | `td11-fin` | Avec les Quêtes |
+| --- | --- | --- |
+| Tests Vitest | 238 dans 33 fichiers | 269 dans 37 fichiers, tous réussis |
+| Couverture des lignes Vitest | 73,99 % (1 178/1 592) | 73,09 % (1 369/1 873) |
+| Couverture du domaine Quêtes | Sans objet | 100 % des lignes (21/21) et branches (20/20) |
+| Règles de dépendance / violations | 7 / 0 | 7 / 0 (155 modules et 520 dépendances parcourus) |
+| Fonctions d'aptitude existantes | 2 réussies | 2 réussies |
+| Tests navigateur | Aucun | 4 passages : 2 scénarios × ordinateur/mobile Chromium |
+| Dette technique | 25 entrées, 7 remboursées | 28 entrées, 7 remboursées ; DT-025 partiellement traitée |
+
+`pnpm verify` réussit les 269 tests ; `pnpm build` inclut la nouvelle route `/quests`.
+La couverture globale recule de 0,90 point : l'interface ajoutée n'est pas instrumentée
+par Vitest. Les parcours Playwright sont mesurés séparément ; leur succès ne gonfle pas
+le pourcentage. Le domaine est couvert à 100 %, ce qui ne constitue pas une preuve
+exhaustive de toutes les propriétés du système.
+
+Les tests du nouveau module couvrent la concurrence des réclamations, l'atomicité avec
+la boîte d'envoi, les confirmations répétées, le rejeu d'une projection, la montée de
+version, l'effacement sans recréation, la conservation et la panne du Village distant
+jusqu'au lendemain. Les quatre passages navigateur ont réussi sur une construction de
+production et une base locale dédiée : progression SSE depuis un autre onglet, versement
+unique, persistance après rechargement, export, effacement et isolation à deux comptes.
+Les captures à 1280 × 900 et 390 × 664 pixels CSS ne montrent pas de débordement ; les tests
+contrôlent aussi l'absence d'erreur JavaScript. Le profil mobile est Chromium, pas Safari.
+
+### Décisions, dette et risques du module
+
+Les ADR 0010 et 0011 consignent le stockage, la projection, le versement et le canal privé.
+La [revue de sécurité](qualite/revue-securite-quetes.md) comporte onze exigences conformes
+et deux risques acceptés : les participations sans fin de partie (DT-026) et les marqueurs
+pseudonymes/remises concurrentes pendant l'effacement (DT-027). Le traitement T9 précise
+les données et conservations. DT-025 reste ouverte pour les autres écrans et les coupures
+réseau prolongées. Les réserves antérieures sur l'hébergement, les journaux et le service
+extrait ne sont pas closes par l'ajout des Quêtes.
+
+### Performance et déploiement
+
+Le test de charge **échoue au budget de 500 ms** : p99 de 965 ms pour les Quêtes,
+650 ms pour les expéditions, 601 ms pour le Classement et 852 ms pour le Marché, sans
+aucune erreur HTTP. Une contre-épreuve de `td11-fin`, sur une base neuve du même disque,
+échoue aussi pour le Classement (724 ms) et le Marché (737 ms). Ces exécutions ne permettent
+pas d'attribuer toutes les différences au module ni de garantir l'absence de régression.
+La lecture atomique et l'évitement de distributions inutiles réduisent les opérations,
+mais ne suffisent pas à respecter le budget. DT-028 reste ouverte ; le bonus B7 n'est pas
+revendiqué. Le [protocole et les résultats bruts](../perf/evaluation-environment.md)
+conservent aussi la première mesure. La production ne fait l'objet d'aucun test de charge.
+
+Le contrôle fonctionnel du déploiement est consigné dans le document de rendu. Les mesures du TD11 conservées dans les sections
+suivantes sont historiques et ne remplacent pas celles de la nouvelle version.
+
+Les sections 1 à 7 conservent le bilan détaillé du socle au TD11 ; le tableau des décisions
+est complété par les deux décisions de l'évaluation.
 
 ## 1. Le système livré
 
@@ -48,6 +112,8 @@ Les textes complets figurent dans le [registre des ADR](adr/README.md).
 | 0007 | Saga et boîte d’envoi | Échange à deux processus, panne du Village, reprise et lettres mortes | Conservation des ressources vérifiée ; cohérence différée et intervention après abandon |
 | 0008 | Taverne en tables, réécriture ciblée | Suppression reprise après interruption et deux copies du Village | Noms neutralisés dans les scénarios testés ; identifiants, journaux et sauvegardes restent pseudonymes |
 | 0009 | Extraction préparée, non déployée | Huit tests de contrat et démonstration HTTP avec retour arrière | Extraction démontrée ; migration initiale, exploitation et dettes du service à traiter avant déploiement |
+| 0010 | Réclamations en tables, progression reconstruisible | Concurrence, rejeu, montée de version, conservation | Récompenses conservées au rejeu ; progression cohérente à terme |
+| 0011 | Messages idempotents et canal privé | Panne distante après minuit, doublons, SSE et deux joueurs | Versement repris sans doublon ; limites d'exploitation et d'effacement explicites |
 
 ## 3. La qualité
 
