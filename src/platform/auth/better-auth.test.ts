@@ -116,6 +116,8 @@ describe('Limitation des tentatives', () => {
       }),
     )
 
+  // Les soixante refus calculent réellement une empreinte de mot de passe : prévoir
+  // un budget propre à ce scénario sur les machines de construction moins puissantes.
   it('conserve les compteurs dans la base, où toutes les instances les partagent', async () => {
     const statuses: number[] = []
     for (let i = 0; i < 61; i++) statuses.push((await attempt(auth)).status)
@@ -130,5 +132,5 @@ describe('Limitation des tentatives', () => {
     const rows = await db.select().from(rateLimit)
     expect(rows).toHaveLength(1)
     expect(rows[0].count).toBe(60)
-  })
+  }, 60_000)
 })

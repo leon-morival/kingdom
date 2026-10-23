@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import type { OfferView } from '@/modules/market/contracts'
 import type { RankingEntry } from '@/modules/ranking/contracts'
 import type { Stock } from '@/modules/realm/contracts'
@@ -26,8 +26,15 @@ async function stockOf(api: TestApi, player: string): Promise<Stock> {
 }
 
 describe("Village extrait - contrat avec l'application", () => {
+  let api: TestApi
+
+  // Le premier démarrage initialise et migre deux bases PGlite indépendantes.
+  // Son budget est distinct de celui des assertions ; les bases sont vidées à chaque test.
+  beforeEach(async () => {
+    api = await withService()
+  }, 60_000)
+
   it('transmet les requêtes du joueur au service, et relaie ses événements', async () => {
-    const api = await withService()
     const res = await api.post('/api/realm/village', { name: 'Valombre' })
     expect(res.status).toBe(201)
     expect((await (await api.get('/api/realm/village')).json()).view.name).toBe('Valombre')
@@ -39,7 +46,6 @@ describe("Village extrait - contrat avec l'application", () => {
   })
 
   it('refuse toute requête au service qui ne porte pas le secret partagé (401)', async () => {
-    const api = await withService()
     const service = api.service
     expect((await service?.request('/events'))?.status).toBe(401)
     const forged = await service?.request('/realm/village', {
@@ -53,7 +59,6 @@ describe("Village extrait - contrat avec l'application", () => {
   })
 
   it('présente au Classement les villages du service, par le relais', async () => {
-    const api = await withService()
     await api.post('/api/realm/village', { name: 'Valombre' })
 
     const res = await api.get('/api/ranking/players', 'bob')
@@ -62,7 +67,6 @@ describe("Village extrait - contrat avec l'application", () => {
   })
 
   it("réalise l'échange du Marché avec le Village extrait, sans créer ni perdre de ressource", async () => {
-    const api = await withService()
     await api.post('/api/realm/village', { name: 'Valombre' }, 'alice')
     await api.post('/api/realm/village', { name: 'Roche-Haute' }, 'bob')
 
@@ -85,7 +89,6 @@ describe("Village extrait - contrat avec l'application", () => {
   })
 
   it('reprend la saga du Marché après une panne du service', async () => {
-    const api = await withService()
     await api.post('/api/realm/village', { name: 'Valombre' })
 
     // Le service tombe en panne : l'offre est enregistrée, mais la réservation des
@@ -110,7 +113,6 @@ describe("Village extrait - contrat avec l'application", () => {
   })
 
   it("exporte et efface les données du Village par l'intermédiaire du service", async () => {
-    const api = await withService()
     await api.post('/api/realm/village', { name: 'Valombre' })
 
     const exported = await (await api.get('/api/account/export')).json()
@@ -128,7 +130,6 @@ describe("Village extrait - contrat avec l'application", () => {
     }
   })
   it('ignore les identités forgées par un joueur et exige une session sur la passerelle', async () => {
-    const api = await withService()
     await api.post('/api/realm/village', { name: 'Valombre' })
     const forged = await api.api.request('/api/realm/village', {
       headers: { 'x-test-user': 'bob', 'x-player-id': 'alice', 'x-player-name': 'Alice' },
@@ -140,7 +141,6 @@ describe("Village extrait - contrat avec l'application", () => {
   })
 
   it('refuse un message mal formé avant de le distribuer', async () => {
-    const api = await withService()
     for (const body of ['{', JSON.stringify({ id: 'message-sans-sujet' })]) {
       for (const [app, path] of [
         [api.api, '/api/internal/messages'],

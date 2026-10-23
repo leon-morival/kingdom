@@ -66,6 +66,16 @@ Les textes complets figurent dans le [registre des ADR](adr/README.md).
 se régénère dans `coverage/` ; il n’est pas versionné. Les composants `ui.tsx`, les écrans
 et le client temps réel ne disposent pas d’un parcours navigateur rejoué automatiquement.
 
+Le déploiement du 22 octobre a révélé deux dépassements du délai de 20 secondes sur
+Vercel. La concurrence des tests est désormais limitée à deux fichiers en CI/Vercel.
+Seuls le scénario des 61 tentatives de connexion et la préparation des deux bases du
+Village extrait disposent de 60 secondes. La préparation habituelle d'une base dispose
+de 30 secondes, après deux dépassements des 15 secondes observés lors d'une nouvelle
+exécution locale contrainte. Les assertions et le délai des autres tests restent inchangés.
+Le 23 octobre, `CI=1 VERCEL=1 taskset -c 0,1 pnpm verify` réussit les 238 tests en
+75,05 secondes sur deux processeurs logiques, avec les contrôles de style, de types et
+de dépendances. Cette vérification locale ne reproduit pas exactement les ressources de Vercel.
+
 ### Mesure de l’optimisation
 
 Mesures du 22 octobre sur le même poste, Node 24.14.1, Next 16.4.0 en mode production,

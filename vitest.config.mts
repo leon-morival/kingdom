@@ -11,10 +11,12 @@ export default defineConfig({
     include: ['src/**/*.test.ts'],
     // Chaque fichier démarre une base PGlite : limiter la concurrence évite de saturer
     // la machine et de faire expirer les migrations avant le début des tests.
-    maxWorkers: 4,
+    // Les constructions CI/Vercel disposent de moins de ressources que le poste local.
+    maxWorkers: process.env.CI || process.env.VERCEL ? 2 : 4,
     // Le démarrage de plusieurs bases PGlite en parallèle peut dépasser cinq secondes.
     testTimeout: 20_000,
-    hookTimeout: 15_000,
+    // La préparation inclut le démarrage et les migrations d'une base PGlite.
+    hookTimeout: 30_000,
     // Les tests s'exécutent toujours dans un environnement de test, y compris lorsqu'ils
     // sont lancés par la construction Vercel, où NODE_ENV vaut « production ».
     // Couverture du code par les tests (TD11), mesurée par la commande pnpm test:coverage.
