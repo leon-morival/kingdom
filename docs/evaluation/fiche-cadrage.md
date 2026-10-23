@@ -28,7 +28,8 @@ Le catalogue est fixe : les mêmes objectifs sont proposés à tous chaque jour.
 6. Une nouvelle réclamation exige un objectif atteint, un village fondé et une
    journée encore en cours. L'heure, le joueur et la récompense viennent du serveur.
 7. Une récompense est réclamable une seule fois par joueur, jour et contrat.
-   Répéter une réclamation acceptée renvoie son état, même après minuit.
+   Répéter une réclamation acceptée renvoie son état, même après minuit, tant que
+   cette réclamation est conservée. Après sa purge, une ancienne journée reste refusée.
 8. Une réclamation acceptée reste due après l'expiration. La livraison peut être
    retentée ; le même identifiant de mouvement empêche un double versement au Village.
 9. L'état « versée » n'est affiché qu'après la confirmation du Village.

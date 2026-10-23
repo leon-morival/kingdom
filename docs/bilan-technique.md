@@ -66,8 +66,13 @@ mais ne suffisent pas à respecter le budget. DT-028 reste ouverte ; le bonus B7
 revendiqué. Le [protocole et les résultats bruts](../perf/evaluation-environment.md)
 conservent aussi la première mesure. La production ne fait l'objet d'aucun test de charge.
 
-Le contrôle fonctionnel du déploiement est consigné dans le document de rendu. Les mesures du TD11 conservées dans les sections
-suivantes sont historiques et ne remplacent pas celles de la nouvelle version.
+Le commit `f0b75d2` a été déployé avec succès sur Vercel. Le contrôle fonctionnel de
+production du 23 octobre à 14:33 (Europe/Paris) a réussi avec deux comptes temporaires :
+récompense unique, SSE privé, isolation, échange commercial à deux joueurs, accès aux
+modules existants, export et suppression des comptes. Le [rendu](evaluation/rendu.md)
+consigne ces preuves et le contrôle du rendu des sept diagrammes sur GitHub.
+Les mesures du TD11 conservées dans les sections suivantes sont historiques et ne
+remplacent pas celles de la nouvelle version.
 
 Les sections 1 à 7 conservent le bilan détaillé du socle au TD11 ; le tableau des décisions
 est complété par les deux décisions de l'évaluation.

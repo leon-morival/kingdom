@@ -4,7 +4,7 @@
 - Module : `quests` — Tableau des contrats
 - Adresse du déploiement : https://kingdom-swart.vercel.app/quests
 - Fiche de cadrage : [fiche-cadrage.md](fiche-cadrage.md)
-- État : validation locale effectuée ; contrôle du déploiement à consigner ci-dessous.
+- État : validations locale et fonctionnelle en production effectuées le 23 octobre 2026.
 - L'étiquette `eval-fin` sera posée après finalisation du document par l'auteur.
 
 ## Exigences minimales
@@ -77,7 +77,29 @@ mesurés séparément et ne gonflent pas le taux de couverture Vitest.
 
 ## Vérifications du déploiement
 
-À compléter après publication et contrôle du déploiement.
+Le commit [`f0b75d2`](https://github.com/leon-morival/kingdom/commit/f0b75d220ba444d4ddd27daa0ea1731f9bc2f726)
+a été publié avec succès sur Vercel. Le contrôle HTTP authentifié a été exécuté
+le 23 octobre 2026 de 14:33:01 à 14:33:07 (Europe/Paris), sur
+[la production](https://kingdom-swart.vercel.app/quests), avec deux comptes temporaires.
+
+| Contrôle | Résultat observé |
+| --- | --- |
+| Connexion et Village | Deux inscriptions, deux villages et amélioration de la scierie réussies |
+| Contrat Bâtisseur | Progression à 1 ; récompense confirmée de 20 or ; nouvelle demande sans second versement |
+| Flux privé | Événement SSE reçu ; lecture de repli disponible ; accès au canal d'autrui refusé avec HTTP 403 |
+| Donjon | Expédition créée et second joueur inscrit |
+| Marché | Échange conclu ; contrat Marchand progressant pour les deux joueurs |
+| Autres modules | Message de Taverne visible du second joueur ; Classement accessible |
+| Page et droits | Page `/quests` servie ; export comprenant la récompense, sans identifiant de l'autre joueur |
+| Nettoyage | Suppression des deux comptes temporaires par la route d'effacement réussie |
+
+L'exécution des routes Quêtes confirme que leur schéma est utilisable dans la base
+déployée. Ce contrôle fonctionnel ne constitue pas un test de charge de la production.
+Les parcours complets de navigateur restent les quatre passages locaux décrits plus haut.
+
+Les sept diagrammes Mermaid de `docs/architecture.md`, dont la séquence de versement,
+ont également été contrôlés sur la page GitHub de ce commit : chaque diagramme produit
+un SVG visible et aucun n'affiche d'erreur de syntaxe.
 
 ## Documents de pilotage
 

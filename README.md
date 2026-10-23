@@ -129,7 +129,7 @@ passage réussi. Le [registre des traitements](docs/rgpd/registre-traitements.md
 
 ## Quêtes quotidiennes
 
-Le [tableau des contrats](/quests) propose chaque jour trois objectifs : améliorer un
+Le [tableau des contrats](https://kingdom-swart.vercel.app/quests) propose chaque jour trois objectifs : améliorer un
 bâtiment (20 or), gagner une expédition (40 bois), conclure un échange au Marché
 (30 pierre, pour chacun des deux participants). Les journées commencent à **00:00 UTC**.
 Les actions du jour comptent même avant la première visite. Un village est nécessaire
