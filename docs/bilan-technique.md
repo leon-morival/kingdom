@@ -1,6 +1,6 @@
 # Bilan technique de Royaumes
 
-- Date : 2026-10-22
+- Date : 2026-10-23
 - Version examinée : travail du TD11, destiné à l’étiquette `td11-fin`
 - Auteur : Leon Morival
 
@@ -75,6 +75,13 @@ exécution locale contrainte. Les assertions et le délai des autres tests reste
 Le 23 octobre, `CI=1 VERCEL=1 taskset -c 0,1 pnpm verify` réussit les 238 tests en
 75,05 secondes sur deux processeurs logiques, avec les contrôles de style, de types et
 de dépendances. Cette vérification locale ne reproduit pas exactement les ressources de Vercel.
+
+La construction du 23 octobre a aussi signalé trois avis de sécurité sur Next.js 16.4.0.
+La dépendance et son verrou passent à [16.4.1](https://github.com/vercel/next.js/releases/tag/v16.4.1),
+version corrective ; `pnpm audit --prod` ne signale ensuite aucune vulnérabilité connue.
+La validation finale sur deux processeurs réussit les 238 tests en 170 secondes avec
+les délais ajustés, et `pnpm build` termine sans erreur avec Next.js 16.4.1.
+Les mesures de charge ci-dessous restent celles de la version 16.4.0 du 22 octobre.
 
 ### Mesure de l’optimisation
 
