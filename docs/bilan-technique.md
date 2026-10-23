@@ -83,6 +83,13 @@ La validation finale sur deux processeurs réussit les 238 tests en 170 secondes
 les délais ajustés, et `pnpm build` termine sans erreur avec Next.js 16.4.1.
 Les mesures de charge ci-dessous restent celles de la version 16.4.0 du 22 octobre.
 
+Sur le déploiement `d6e1830` du 23 octobre, les parcours HTTP de connexion, Village,
+Donjon, Classement, échange au Marché avec contrôle des stocks, Taverne en SSE et export
+ont réussi ; les deux comptes de test ont ensuite été effacés. Dans la console Vercel,
+le bouton « Run » de `/api/cron/daily` a produit une réponse HTTP 200 à 09:41, heure de
+Paris. Dans l'éditeur Neon en lecture seule, `SELECT count(*) FROM identity.rate_limit;`
+a renvoyé 3 : la table des compteurs existe et contient des lignes après les connexions.
+
 ### Mesure de l’optimisation
 
 Mesures du 22 octobre sur le même poste, Node 24.14.1, Next 16.4.0 en mode production,
@@ -143,8 +150,8 @@ La conformité du Donjon ne démontre pas l’imprévisibilité cryptographique 
 La revue RGPD demeure celle du TD10, complétée par l’inventaire des compteurs dans le
 [registre des traitements](rgpd/registre-traitements.md). Aucune conclusion globale de
 conformité n’est déduite du succès des tests. Les garanties contractuelles et la région Neon
-restent à attester ; le rendu visuel et les consoles Vercel/Neon n’étaient pas accessibles
-pour les vérifications de ce TD.
+restent à attester ; le parcours visuel du jeu n’a pas été vérifié. Les contrôles dans
+les consoles Vercel et Neon sont consignés dans la section 3.
 
 ## 6. Risques et recommandations
 
