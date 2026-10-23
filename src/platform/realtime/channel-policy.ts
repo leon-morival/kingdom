@@ -38,6 +38,8 @@ export interface ChannelPolicy {
    * une table, pour un module qui n'enregistre pas d'événements.
    */
   source?: ChannelSource
+  /** Source isolée par abonnement, construite seulement après le contrôle d'accès. */
+  sourceFor?(channel: string, userId: string): ChannelSource
 }
 
 /**

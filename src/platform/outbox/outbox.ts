@@ -2,6 +2,29 @@ import { and, asc, eq, gte, isNull, sql } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { outbox } from './schema'
 
+type MessageTransaction = Parameters<Parameters<Db['transaction']>[0]>[0]
+
+/** Enregistre les messages dans la transaction locale d'un module en tables classiques. */
+export async function enqueueMessages(tx: MessageTransaction, messages: NewMessage[]) {
+  if (messages.length > 0) await tx.insert(outbox).values(messages.map(toOutboxRow))
+}
+
+/** Retire les messages correspondants lors d'un effacement ; n'annule pas une remise en cours. */
+export async function discardMessages(
+  tx: MessageTransaction,
+  topic: string,
+  payloadMatch: Record<string, unknown>,
+) {
+  await tx
+    .delete(outbox)
+    .where(
+      and(
+        eq(outbox.topic, topic),
+        sql`${outbox.payload} @> ${JSON.stringify(payloadMatch)}::jsonb`,
+      ),
+    )
+}
+
 /** Message à enregistrer dans la boîte d'envoi, avec les événements qui le produisent. */
 export interface NewMessage {
   /** Sujet du message, par exemple « realm.withdraw » : il désigne son gestionnaire. */

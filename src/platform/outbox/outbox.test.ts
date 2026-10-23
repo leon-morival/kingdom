@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createTestDatabase, type Db } from '../db/client'
 import { ConcurrencyError, createEventStore, type EventStore } from '../event-store/event-store'
-import { createDispatcher, type Message } from './outbox'
+import { createDispatcher, discardMessages, enqueueMessages, type Message } from './outbox'
 import { outbox } from './schema'
 
 // Chaque test dispose d'un journal neuf et d'une boîte d'envoi vide.
@@ -26,6 +26,34 @@ function testClock() {
 const ping = (n: number) => ({ topic: 'test.ping', payload: { n } })
 
 describe("Boîte d'envoi : enregistrement", () => {
+  it('annule les messages lorsque la transaction du module échoue', async () => {
+    await expect(
+      db.transaction(async (tx) => {
+        await enqueueMessages(tx, [ping(1)])
+        throw new Error('Échec de la transaction locale')
+      }),
+    ).rejects.toThrow('Échec de la transaction locale')
+    expect(await db.select().from(outbox)).toEqual([])
+    await db.transaction((tx) => enqueueMessages(tx, [ping(2)]))
+    expect((await db.select().from(outbox)).map((row) => row.payload)).toEqual([{ n: 2 }])
+  })
+
+  it('efface seulement les messages du sujet et du destinataire désignés', async () => {
+    await db.transaction((tx) =>
+      enqueueMessages(tx, [
+        { topic: 'a', payload: { playerId: 'alice', extra: true } },
+        { topic: 'a', payload: { playerId: 'bob' } },
+        { topic: 'b', payload: { playerId: 'alice' } },
+      ]),
+    )
+    await db.transaction((tx) => discardMessages(tx, 'a', { playerId: 'alice' }))
+    const rows = await db.select().from(outbox)
+    expect(rows).toHaveLength(2)
+    expect(rows.map((row) => [row.topic, row.payload])).toEqual([
+      ['a', { playerId: 'bob' }],
+      ['b', { playerId: 'alice' }],
+    ])
+  })
   it('enregistre les messages avec les événements, dans la même transaction', async () => {
     await store.append('s-1', 0, [{ type: 'A', data: {} }], [ping(1), ping(2)])
 

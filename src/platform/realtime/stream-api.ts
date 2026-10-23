@@ -49,7 +49,16 @@ interface IdentifiedSource extends ChannelSource {
  * sont identifiés par leur position, et seuls les événements à venir sont transmis. Un canal
  * doté d'une source propre lit cette source, et identifie ses éléments par leur position.
  */
-function sourceOf(store: EventStore, channel: string, policy: ChannelPolicy): IdentifiedSource {
+function sourceOf(
+  store: EventStore,
+  channel: string,
+  policy: ChannelPolicy,
+  userId: string,
+): IdentifiedSource {
+  if (policy.sourceFor) {
+    const source = policy.sourceFor(channel, userId)
+    return { ...source, idOf: (event) => event.position }
+  }
   if (policy.source) {
     const source = policy.source
     return { read: source.read, start: source.start, idOf: (event) => event.position }
@@ -94,7 +103,7 @@ export function createRealtimeApi({
         const channel = c.req.param('channel')
         const policy = await authorize(policies, channel, c.var.userId)
         if (!policy) return c.json(FORBIDDEN, 403)
-        const source = sourceOf(store, channel, policy)
+        const source = sourceOf(store, channel, policy, c.var.userId)
 
         // Point de reprise : l'en-tête Last-Event-ID, envoyé par le navigateur à la reconnexion,
         // ou à défaut le paramètre after ; sinon, l'identifiant de départ du canal.
@@ -143,7 +152,7 @@ export function createRealtimeApi({
         const channel = c.req.param('channel')
         const policy = await authorize(policies, channel, c.var.userId)
         if (!policy) return c.json(FORBIDDEN, 403)
-        const source = sourceOf(store, channel, policy)
+        const source = sourceOf(store, channel, policy, c.var.userId)
         const events = await source.read(await startFrom(c.req.query('after'), source))
         return c.json({ events: events.map((event) => present(event, policy)) })
       })
