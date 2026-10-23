@@ -71,7 +71,10 @@ describe('API des Quêtes', () => {
         { topic: message.topic, payload: message.payload as Record<string, unknown> },
       ]),
     )
-    await board(api)
+    await api.api.request('/api/cron/daily', {
+      headers: { authorization: `Bearer ${TEST_CRON_SECRET}` },
+    })
+    expect(await createDispatcher(api.db).status()).toEqual({ pending: 0, abandoned: 0 })
     expect((await stock(api)).gold).toBe(before.gold + 20)
   })
   it('R1 : renouvelle les contrats sans tâche de fond et rejette une ancienne nouvelle réclamation', async () => {

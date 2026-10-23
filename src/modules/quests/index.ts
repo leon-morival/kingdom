@@ -5,8 +5,8 @@ import type { ProjectionRunner } from '@/platform/projection/projection'
 import type { ChannelPolicy } from '@/platform/realtime/channel-policy'
 import { createQuestsApi } from './api'
 import { createQuestsService } from './application/quests-service'
-import { QUESTS_CHANNEL_PREFIX, QUESTS_TOPICS, questsChannel, TransferReply } from './contracts'
-import { DAY_MS, RETENTION_DAYS } from './domain/quests'
+import { QUESTS_CHANNEL_PREFIX, QUESTS_TOPICS, TransferReply } from './contracts'
+import { DAY_MS, ownsBoard, RETENTION_DAYS } from './domain/quests'
 import { createDrizzleQuestsRepository } from './infrastructure/drizzle-quests-repository'
 import { notifications } from './infrastructure/schema'
 import { createQuestsPersonalData } from './personal-data'
@@ -32,7 +32,8 @@ export function createQuestsModule({
   }
   const channelPolicy: ChannelPolicy = {
     prefix: QUESTS_CHANNEL_PREFIX,
-    canSubscribe: (channel, userId) => channel === questsChannel(userId),
+    canSubscribe: (channel, userId) =>
+      ownsBoard(channel.slice(QUESTS_CHANNEL_PREFIX.length), userId),
     redact: true,
     sourceFor: (channel, playerId) => ({
       async start() {

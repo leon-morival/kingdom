@@ -49,6 +49,9 @@ export const retainedFrom = (now: number) => dayOf(now - (RETENTION_DAYS - 1) * 
 export const progressAfter = (questId: QuestId, current: number) =>
   Math.min(QUESTS[questId].target, current + 1)
 
+export const ownsBoard = (ownerId: string, playerId: string) =>
+  playerId.length > 0 && ownerId === playerId
+
 /** Seuls les joueurs humains enregistrés participent, indépendamment de leurs points de vie. */
 export const victoryRecipients = (result: string, humanIds: string[]) =>
   result === 'won' ? [...new Set(humanIds)] : []

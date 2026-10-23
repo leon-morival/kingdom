@@ -1,9 +1,9 @@
-import { and, eq, lt, ne } from 'drizzle-orm'
+import { and, eq, lt, sql } from 'drizzle-orm'
 import { REALM_TOPICS } from '@/modules/realm/contracts'
 import type { Db } from '@/platform/db/client'
 import { enqueueMessages } from '@/platform/outbox/outbox'
 import type { ProjectionRunner } from '@/platform/projection/projection'
-import type { QuestsRepository } from '../application/quests-repository'
+import type { QuestSnapshot, QuestsRepository } from '../application/quests-repository'
 import { QUESTS_TOPICS } from '../contracts'
 import {
   type Claim,
@@ -38,26 +38,26 @@ export function createDrizzleQuestsRepository(
     },
     position: () => projections.positionOf(projection.name),
     async snapshot(playerId, day) {
-      const [village] = await db.select().from(villages).where(eq(villages.playerId, playerId))
-      const rows = await db
-        .select()
-        .from(progress)
-        .where(and(eq(progress.playerId, playerId), eq(progress.day, day)))
-      const today = await db
-        .select()
-        .from(claims)
-        .where(and(eq(claims.playerId, playerId), eq(claims.day, day)))
-      const pending = await db
-        .select()
-        .from(claims)
-        .where(
-          and(eq(claims.playerId, playerId), eq(claims.status, 'pending'), ne(claims.day, day)),
-        )
+      // Une instruction donne une vue cohérente des trois tables, avec un seul aller-retour.
+      const result = await db.execute(sql`
+        SELECT EXISTS(SELECT 1 FROM ${villages} WHERE ${villages.playerId} = ${playerId}) AS "hasVillage",
+        COALESCE((SELECT jsonb_agg(jsonb_build_object('questId', ${progress.questId}, 'count', ${progress.count}))
+          FROM ${progress} WHERE ${progress.playerId} = ${playerId} AND ${progress.day} = ${day}), '[]'::jsonb) AS progress,
+        COALESCE((SELECT jsonb_agg(jsonb_build_object(
+          'day', ${claims.day}, 'questId', ${claims.questId}, 'reward', ${claims.reward},
+          'status', ${claims.status}, 'claimedAt', ${claims.claimedAt}, 'paidAt', ${claims.paidAt}))
+          FROM ${claims} WHERE ${claims.playerId} = ${playerId}
+          AND (${claims.day} = ${day} OR ${claims.status} = 'pending')), '[]'::jsonb) AS rewards`)
+      const [row] = (
+        result as unknown as {
+          rows: { hasVillage: boolean; progress: QuestSnapshot['progress']; rewards: Claim[] }[]
+        }
+      ).rows
       return {
-        hasVillage: !!village,
-        progress: rows,
-        claims: today.map(claimView),
-        pending: pending.map(claimView),
+        hasVillage: row.hasVillage,
+        progress: row.progress,
+        claims: row.rewards.filter((claim) => claim.day === day),
+        pending: row.rewards.filter((claim) => claim.day !== day),
       }
     },
     async claim(playerId, day, questId, now) {

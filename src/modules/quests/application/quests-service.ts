@@ -8,11 +8,17 @@ export function createQuestsService(
   clock = () => Date.now(),
 ) {
   async function board(playerId: string): Promise<QuestBoard> {
-    await dispatch()
     await repo.catchUp()
     const now = clock()
     const day = dayOf(now)
-    const snapshot = await repo.snapshot(playerId, day)
+    let snapshot = await repo.snapshot(playerId, day)
+    if (
+      snapshot.pending.length > 0 ||
+      snapshot.claims.some((claim) => claim.status === 'pending')
+    ) {
+      await dispatch()
+      snapshot = await repo.snapshot(playerId, day)
+    }
     return {
       day,
       expiresAt: endsAt(day),

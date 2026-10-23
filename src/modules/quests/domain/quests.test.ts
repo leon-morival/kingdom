@@ -6,6 +6,7 @@ import {
   DAY_MS,
   dayOf,
   endsAt,
+  ownsBoard,
   progressAfter,
   QUEST_IDS,
   QUESTS,
@@ -33,6 +34,11 @@ const claim: Claim = {
 }
 
 describe('Règles des contrats quotidiens', () => {
+  it('R10 : réserve un tableau à son propriétaire identifié', () => {
+    expect(ownsBoard('alice', 'alice')).toBe(true)
+    expect(ownsBoard('alice', 'bob')).toBe(false)
+    expect(ownsBoard('', '')).toBe(false)
+  })
   it('R1 : change de journée exactement à minuit UTC, même autour du changement d’heure', () => {
     const end = endsAt('2026-10-25')
     expect(dayOf(end - 1)).toBe('2026-10-25')
