@@ -155,7 +155,7 @@ export function QuestsScreen({ userId }: { userId: string }) {
   const minutes = Math.floor(((remaining ?? 0) % 3600) / 60)
 
   return (
-    <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 text-stone-900 sm:px-6">
+    <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 text-stone-900 sm:px-6">
       <header className="relative overflow-hidden rounded-2xl bg-emerald-950 px-6 py-8 text-amber-50 shadow-lg sm:px-8">
         <div
           aria-hidden="true"
@@ -371,6 +371,6 @@ export function QuestsScreen({ userId }: { userId: string }) {
         <br />
         Une seule récompense par contrat et par jour.
       </p>
-    </main>
+    </div>
   )
 }
