@@ -23,6 +23,7 @@ export const theme: Record<string, Look> = {
   ranking: { glyph: '🏆', label: 'Classement' },
   market: { glyph: '⚖️', label: 'Marché' },
   tavern: { glyph: '🍺', label: 'Taverne' },
+  quests: { glyph: '📜', label: 'Quêtes' },
   hero: { glyph: '🛡️', label: 'Héros' },
   companion: { glyph: '🤖', label: 'Compagnon' },
   goblin: { glyph: '👺', label: 'Gobelin' },
