@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { createDungeonModule } from '@/modules/dungeon'
 import { createMarketModule } from '@/modules/market'
+import { createQuestsModule } from '@/modules/quests'
 import { createRankingModule } from '@/modules/ranking'
 import { createRealmModule, createRemoteRealmModule } from '@/modules/realm'
 import { createSystemModule } from '@/modules/system'
@@ -81,6 +82,12 @@ export function createApi({
   })
 
   const tavern = createTavernModule({ db, clock })
+  const quests = createQuestsModule({
+    db,
+    projections,
+    dispatch: () => dispatcher.dispatch(),
+    clock,
+  })
 
   // Droits des joueurs : chaque module fournit ses données personnelles. L'identité vient
   // en dernier : tant qu'elle n'est pas effacée, le joueur peut relancer un effacement interrompu.
@@ -92,6 +99,7 @@ export function createApi({
       market.personalData,
       ranking.personalData,
       tavern.personalData,
+      quests.personalData,
       createIdentityPersonalData(db),
     ],
     clock,
@@ -100,6 +108,7 @@ export function createApi({
   // Gestionnaires de messages, déclarés par les modules et confiés au distributeur.
   dispatcher.register(realm.handlers)
   dispatcher.register(market.handlers)
+  dispatcher.register(quests.handlers)
 
   // Règles d'accès aux canaux temps réel, déclarées par les modules.
   const policies: ChannelPolicy[] = [
@@ -108,6 +117,7 @@ export function createApi({
     ranking.channelPolicy,
     market.channelPolicy,
     tavern.channelPolicy,
+    quests.channelPolicy,
   ]
 
   // 2. Application principale : toutes ses routes sont préfixées par /api.
@@ -156,6 +166,7 @@ export function createApi({
         },
         // Durée de conservation des données de la Taverne.
         tavern: tavern.dailyTask,
+        quests: quests.dailyTask,
         ...(remoteRealm ? { realm: remoteRealm.dailyTask } : {}),
       },
       cronSecret,
@@ -172,6 +183,7 @@ export function createApi({
   app.use('/ranking/*', requireUser(auth))
   app.use('/market/*', requireUser(auth))
   app.use('/tavern/*', requireUser(auth))
+  app.use('/quests/*', requireUser(auth))
   app.use('/account', requireUser(auth))
   app.use('/account/*', requireUser(auth))
   app.use('/stream/*', requireUser(auth))
@@ -185,6 +197,7 @@ export function createApi({
     .route('/ranking', ranking.api)
     .route('/market', market.api)
     .route('/tavern', tavern.api)
+    .route('/quests', quests.api)
     .route('/account', createPrivacyApi(privacy))
     .route('/stream', createRealtimeApi({ store, policies, ...realtime }))
 }
