@@ -31,7 +31,10 @@ const MIGRATIONS = path.join(process.cwd(), 'drizzle')
  *   et dont les migrations sont appliquées au démarrage. Le nom distingue les bases de
  *   plusieurs processus : l'application (pglite) et le service Village extrait (TD11).
  */
-export function createDatabase(url = process.env.DATABASE_URL, name = 'pglite'): Database {
+export function createDatabase(
+  url = process.env.DATABASE_URL,
+  name = process.env.LOCAL_DATABASE_NAME ?? 'pglite',
+): Database {
   if (url) {
     const pool = new Pool({ connectionString: url, max: Number(process.env.DB_POOL_MAX ?? 5) })
     return { db: drizzlePg(pool) as unknown as Db, ready: Promise.resolve() }
@@ -44,6 +47,8 @@ export function createDatabase(url = process.env.DATABASE_URL, name = 'pglite'):
       'DATABASE_URL est absente : connectez une base Neon au projet Vercel, puis redéployez.',
     )
   }
+
+  if (!/^[a-zA-Z0-9-]+$/.test(name)) throw new Error('Nom de base locale invalide')
 
   const dataDir = path.join(process.cwd(), '.data', name)
   mkdirSync(dataDir, { recursive: true })
